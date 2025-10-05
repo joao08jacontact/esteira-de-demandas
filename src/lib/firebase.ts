@@ -2,7 +2,7 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, doc } from "firebase/firestore";
 
-// Lê as variáveis da Vercel/Vite
+// Lê as variáveis definidas na Vercel (.env)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -12,14 +12,18 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Evita inicializar duas vezes em hot reload
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+// Evita inicializar duas vezes
+const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 
 // Firestore
 export const db = getFirestore(app);
 
-// Helpers para coleção por workspace e dia (estrutura simples)
+// Coleção de tarefas do DIA: /workspaces/{ws}/days/{yyyy-mm-dd}/tasks/*
 export function tasksCollection(workspaceId: string, ymd: string) {
-  // workspaces/{ws}/days/{yyyy-mm-dd}/tasks/*
   return collection(doc(collection(db, "workspaces"), workspaceId), "days", ymd, "tasks");
+}
+
+// Coleção de modelos recorrentes: /workspaces/{ws}/templates/*
+export function templatesCollection(workspaceId: string) {
+  return collection(doc(collection(db, "workspaces"), workspaceId), "templates");
 }
