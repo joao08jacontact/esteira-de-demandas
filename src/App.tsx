@@ -1,7 +1,4 @@
-"use client"
-
-import type React from "react"
-import { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collectionGroup,
@@ -13,39 +10,36 @@ import {
   query,
   updateDoc,
   where,
-} from "firebase/firestore"
-import { db, tasksCollection } from "@/lib/firebase"
+} from "firebase/firestore";
+import { db, tasksCollection } from "./lib/firebase";
 
 /* ===========================
    Tipos
 =========================== */
-
-type RecKind = "once" | "daily" | "weekly"
+type RecKind = "once" | "daily" | "weekly";
 
 type Task = {
-  id: string
-  titulo: string
-  inicio: string // HH:MM
-  fim: string // HH:MM
-  concluida: boolean
-  responsavel: string
-  operacao: string
-  ymd: string // YYYY-MM-DD
-  seriesId?: string
-  recKind?: RecKind
-  weekDay?: number // 0-6 (Sunday-Saturday)
-  workspaceId: string
-  createdAt: number
-}
-
-type Timeline = { startMin: number; endMin: number; totalMin: number }
+  id: string;
+  titulo: string;
+  inicio: string; // HH:MM
+  fim: string;    // HH:MM
+  concluida: boolean;
+  responsavel: string;
+  operacao: string;
+  ymd: string; // YYYY-MM-DD
+  seriesId?: string;
+  recKind?: RecKind;
+  workspaceId: string;
+  createdAt: number;
+};
 
 /* ===========================
-   Constantes (responsáveis e operações)
+   Constantes
 =========================== */
+// Colunas do Kanban (apenas esses três)
+const RESPONSAVEIS = ["Bárbara Arruda", "Gabriel Bion", "Luciano Miranda"];
 
-const RESPONSAVEIS = ["Bárbara Arruda", "Gabriel Bion", "Luciano Miranda"]
-
+// Lista fixa de operações
 const OPERACOES = [
   "FMU",
   "INSPIRALI",
@@ -57,214 +51,92 @@ const OPERACOES = [
   "FGTS",
   "DIROMA",
   "ESTÁCIO",
-]
+];
 
-const DAYS_OF_WEEK = [
-  { value: 0, label: "Domingo" },
-  { value: 1, label: "Segunda-feira" },
-  { value: 2, label: "Terça-feira" },
-  { value: 3, label: "Quarta-feira" },
-  { value: 4, label: "Quinta-feira" },
-  { value: 5, label: "Sexta-feira" },
-  { value: 6, label: "Sábado" },
-]
+// Recorrência: horizontes padrão
+const HORIZON_DAYS = 30;  // daily -> próximos 30 dias
+const WEEKS_COUNT  = 8;   // weekly -> 8 semanas
 
 /* ===========================
-   Utils robustos
+   Utils
 =========================== */
-
 function isHHMM(v: any): v is string {
-  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v)
+  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v);
 }
 function hhmmToMin(hhmm: string): number {
-  if (!isHHMM(hhmm)) return 0
-  const [h, m] = hhmm.split(":").map(Number)
-  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0)
-}
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n))
-}
-function buildTimeline(start: string, end: string): Timeline {
-  const startMin = hhmmToMin(start)
-  const endMin = hhmmToMin(end)
-  return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) }
-}
-function percentFromTime(hhmm: string, tl: Timeline): number {
-  const pos = (isHHMM(hhmm) ? hhmmToMin(hhmm) : tl.startMin) - tl.startMin
-  return clamp((pos / tl.totalMin) * 100, 0, 100)
+  if (!isHHMM(hhmm)) return 0;
+  const [h, m] = hhmm.split(":").map(Number);
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
 }
 function ymdToDate(ymd: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
-    const d = new Date()
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
-  const [Y, M, D] = ymd.split("-").map(Number)
-  return new Date(Y, (M || 1) - 1, D || 1)
+  const [Y, M, D] = ymd.split("-").map(Number);
+  return new Date(Y, (M || 1) - 1, D || 1);
 }
 function dateToYMD(d: Date) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${day}`
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /* ===========================
    App
 =========================== */
-
 export default function App() {
-  const [ws, setWs] = useState("demo")
+  // workspace via ?ws=
+  const params = new URLSearchParams(window.location.search);
+  const ws = params.get("ws") || "demo";
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search)
-      setWs(params.get("ws") || "demo")
-    }
-  }, [])
+  const [selectedDate, setSelectedDate] = useState(() => dateToYMD(new Date()));
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-  const [selectedDate, setSelectedDate] = useState(() => dateToYMD(new Date()))
-  const [tasks, setTasks] = useState<Task[]>([])
-
-  // filtros (lista suspensa no topo)
-  const [filterResp, setFilterResp] = useState<string>("(todos)")
-  const [filterOp, setFilterOp] = useState<string>("(todas)")
+  // filtros
+  const [filterResp, setFilterResp] = useState<string>("(todos)");
+  const [filterOp, setFilterOp] = useState<string>("(todas)");
 
   // modais
-  const [showNew, setShowNew] = useState(false)
-  const [editing, setEditing] = useState<Task | null>(null)
-
-  // timeline base (mais "alto" = maiores espaços entre 30m)
-  const dayStart = "08:00"
-  const dayEnd = "20:00"
-  const timeline = useMemo(() => buildTimeline(dayStart, dayEnd), [])
-
-  const [currentTime, setCurrentTime] = useState(() => new Date().toTimeString().slice(0, 5))
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date().toTimeString().slice(0, 5))
-    }, 60000) // Update every minute
-    return () => clearInterval(interval)
-  }, [])
+  const [showNew, setShowNew] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(null);
 
   /* ===========================
      Carrega tarefas do dia
   =========================== */
   useEffect(() => {
-    const loadTasks = async () => {
-      // Load tasks for the selected date
-      const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"))
-
-      return onSnapshot(qy, async (snap) => {
-        const list: Task[] = []
-
-        // Add tasks from the selected date
-        snap.forEach((d) => {
-          const data = d.data() as any
-          const ini = data?.inicio
-          const fim = data?.fim
-          if (!isHHMM(ini) || !isHHMM(fim)) return
-
-          list.push({
-            id: d.id,
-            titulo: String(data?.titulo ?? "Demanda"),
-            inicio: ini,
-            fim: fim,
-            concluida: Boolean(data?.concluida),
-            responsavel: String(data?.responsavel ?? ""),
-            operacao: String(data?.operacao ?? ""),
-            ymd: String(data?.ymd ?? selectedDate),
-            seriesId: data?.seriesId,
-            recKind: (data?.recKind ?? "once") as RecKind,
-            weekDay: data?.weekDay,
-            workspaceId: String(data?.workspaceId ?? ws),
-            createdAt: Number(data?.createdAt ?? Date.now()),
-          })
-        })
-
-        try {
-          const recurringQuery = query(
-            collectionGroup(db, "tasks"),
-            where("workspaceId", "==", ws),
-            where("recKind", "in", ["daily", "weekly"]),
-          )
-
-          const recurringSnap = await getDocs(recurringQuery)
-          const selectedDateObj = ymdToDate(selectedDate)
-          const selectedDayOfWeek = selectedDateObj.getDay()
-
-          recurringSnap.forEach((d) => {
-            const data = d.data() as any
-            const taskYmd = data?.ymd
-
-            // Skip if it's already from the selected date (already loaded above)
-            if (taskYmd === selectedDate) return
-
-            const ini = data?.inicio
-            const fim = data?.fim
-            if (!isHHMM(ini) || !isHHMM(fim)) return
-
-            const recKind = data?.recKind as RecKind
-
-            // For daily tasks: show if the task was created before or on the selected date
-            if (recKind === "daily") {
-              const taskDate = ymdToDate(taskYmd)
-              if (taskDate <= selectedDateObj) {
-                list.push({
-                  id: `${d.id}-recurring-${selectedDate}`,
-                  titulo: String(data?.titulo ?? "Demanda"),
-                  inicio: ini,
-                  fim: fim,
-                  concluida: false, // Recurring tasks start as not completed each day
-                  responsavel: String(data?.responsavel ?? ""),
-                  operacao: String(data?.operacao ?? ""),
-                  ymd: selectedDate, // Use selected date for display
-                  seriesId: data?.seriesId,
-                  recKind: "daily",
-                  workspaceId: String(data?.workspaceId ?? ws),
-                  createdAt: Number(data?.createdAt ?? Date.now()),
-                })
-              }
-            }
-
-            // For weekly tasks: show if it matches the day of week
-            if (recKind === "weekly" && data?.weekDay === selectedDayOfWeek) {
-              const taskDate = ymdToDate(taskYmd)
-              if (taskDate <= selectedDateObj) {
-                list.push({
-                  id: `${d.id}-recurring-${selectedDate}`,
-                  titulo: String(data?.titulo ?? "Demanda"),
-                  inicio: ini,
-                  fim: fim,
-                  concluida: false,
-                  responsavel: String(data?.responsavel ?? ""),
-                  operacao: String(data?.operacao ?? ""),
-                  ymd: selectedDate,
-                  seriesId: data?.seriesId,
-                  recKind: "weekly",
-                  weekDay: data?.weekDay,
-                  workspaceId: String(data?.workspaceId ?? ws),
-                  createdAt: Number(data?.createdAt ?? Date.now()),
-                })
-              }
-            }
-          })
-        } catch (error) {
-          console.error("Error loading recurring tasks:", error)
-        }
-
-        setTasks(list)
-      })
-    }
-
-    return loadTasks()
-  }, [ws, selectedDate])
+    const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"));
+    return onSnapshot(qy, (snap) => {
+      const list: Task[] = [];
+      snap.forEach((d) => {
+        const data = d.data() as any;
+        const ini = data?.inicio;
+        const fim = data?.fim;
+        if (!isHHMM(ini) || !isHHMM(fim)) return; // ignora registros inválidos
+        list.push({
+          id: d.id,
+          titulo: String(data?.titulo ?? "Demanda"),
+          inicio: ini,
+          fim: fim,
+          concluida: Boolean(data?.concluida),
+          responsavel: String(data?.responsavel ?? ""),
+          operacao: String(data?.operacao ?? ""),
+          ymd: String(data?.ymd ?? selectedDate),
+          seriesId: data?.seriesId,
+          recKind: (data?.recKind ?? "once") as RecKind,
+          workspaceId: String(data?.workspaceId ?? ws),
+          createdAt: Number(data?.createdAt ?? Date.now()),
+        });
+      });
+      setTasks(list);
+    });
+  }, [ws, selectedDate]);
 
   /* ===========================
-     CRUD helpers
+     CRUD helpers + recorrência real
   =========================== */
-
-  async function addTaskSafe(input: Omit<Task, "id" | "workspaceId" | "createdAt">) {
+  async function addOne(input: Omit<Task, "id" | "workspaceId" | "createdAt">) {
     const docData: any = {
       titulo: input.titulo,
       inicio: input.inicio,
@@ -276,172 +148,140 @@ export default function App() {
       recKind: input.recKind || "once",
       workspaceId: ws,
       createdAt: Date.now(),
-    }
-    // Nunca envie undefined!
-    if (input.seriesId) docData.seriesId = input.seriesId
-    if (input.weekDay !== undefined) docData.weekDay = input.weekDay
+    };
+    if (input.seriesId) docData.seriesId = input.seriesId; // nunca undefined
+    await addDoc(tasksCollection(ws, input.ymd), docData);
+  }
 
-    await addDoc(tasksCollection(ws, input.ymd), docData)
+  function generateOccurrences(kind: RecKind | undefined, startYmd: string): string[] {
+    const occs: string[] = [];
+    const d0 = ymdToDate(startYmd);
+
+    if (!kind || kind === "once") {
+      occs.push(startYmd);
+      return occs;
+    }
+
+    if (kind === "daily") {
+      for (let i = 0; i < HORIZON_DAYS; i++) {
+        const d = new Date(d0);
+        d.setDate(d0.getDate() + i);
+        occs.push(dateToYMD(d));
+      }
+      return occs;
+    }
+
+    if (kind === "weekly") {
+      for (let w = 0; w < WEEKS_COUNT; w++) {
+        const d = new Date(d0);
+        d.setDate(d0.getDate() + w * 7);
+        occs.push(dateToYMD(d));
+      }
+      return occs;
+    }
+
+    return [startYmd];
+  }
+
+  async function addTaskWithRecurrence(base: Omit<Task, "id" | "workspaceId" | "createdAt">) {
+    const seriesId = base.recKind && base.recKind !== "once" ? crypto.randomUUID() : undefined;
+    const occs = generateOccurrences(base.recKind, base.ymd);
+
+    // grava cada ocorrência (uma por dia)
+    await Promise.all(
+      occs.map((ymd) =>
+        addOne({
+          ...base,
+          ymd,
+          seriesId,
+        })
+      )
+    );
   }
 
   async function updateTaskSafe(tid: string, ymd: string, patch: Partial<Task>) {
-    // remove chaves undefined
-    const clean: any = {}
+    const clean: any = {};
     Object.entries(patch).forEach(([k, v]) => {
-      if (v !== undefined) clean[k] = v
-    })
-    await updateDoc(doc(tasksCollection(ws, ymd), tid), clean)
+      if (v !== undefined) clean[k] = v;
+    });
+    await updateDoc(doc(tasksCollection(ws, ymd), tid), clean);
   }
 
   async function deleteTaskOne(tid: string, ymd: string) {
-    await deleteDoc(doc(tasksCollection(ws, ymd), tid))
+    await deleteDoc(doc(tasksCollection(ws, ymd), tid));
   }
 
   async function deleteAllOccurrences(seriesId: string) {
-    // Apaga todas as ocorrências no workspace, independente do dia
-    const qy = query(collectionGroup(db, "tasks"), where("workspaceId", "==", ws), where("seriesId", "==", seriesId))
-    const snap = await getDocs(qy)
-    const ops = snap.docs.map((d) => deleteDoc(d.ref))
-    await Promise.all(ops)
+    const qy = query(
+      collectionGroup(db, "tasks"),
+      where("workspaceId", "==", ws),
+      where("seriesId", "==", seriesId)
+    );
+    const snap = await getDocs(qy);
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
   }
 
   /* ===========================
      Filtros e volumetria
   =========================== */
-
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
-      const okResp = filterResp === "(todos)" || t.responsavel === filterResp
-      const okOp = filterOp === "(todas)" || t.operacao === filterOp
-      return okResp && okOp
-    })
-  }, [tasks, filterResp, filterOp])
+      const okResp = filterResp === "(todos)" || t.responsavel === filterResp;
+      const okOp = filterOp === "(todas)" || t.operacao === filterOp;
+      return okResp && okOp;
+    });
+  }, [tasks, filterResp, filterOp]);
 
   const stats = useMemo(() => {
-    const nowMin = hhmmToMin(currentTime)
-    let c = 0,
-      a = 0,
-      p = 0
+    const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
+    let c = 0, a = 0, p = 0;
     filteredTasks.forEach((t) => {
-      if (t.concluida) c++
-      else if (hhmmToMin(t.fim) <= nowMin) a++
-      else p++
-    })
-    return { total: filteredTasks.length, concluida: c, atrasada: a, noPrazo: p }
-  }, [filteredTasks, currentTime])
+      if (t.concluida) c++;
+      else if (hhmmToMin(t.fim) <= nowMin) a++;
+      else p++;
+    });
+    return { total: filteredTasks.length, concluida: c, atrasada: a, noPrazo: p };
+  }, [filteredTasks]);
 
   const volumetriaPorResp = useMemo(() => {
-    const map = new Map<string, number>()
-    filteredTasks.forEach((t) => map.set(t.responsavel, (map.get(t.responsavel) || 0) + 1))
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
-  }, [filteredTasks])
+    const map = new Map<string, number>();
+    filteredTasks.forEach((t) => map.set(t.responsavel, (map.get(t.responsavel) || 0) + 1));
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filteredTasks]);
 
-  /* ===========================
-     Colunas por responsável
-  =========================== */
-
-  type Enriched = Task & { startMin: number; endMin: number; idx: number }
-
-  function computeLanes(list: Enriched[]) {
-    // interval partitioning por componente de sobreposição
-    const overlaps = (a: Enriched, b: Enriched) => a.startMin < b.endMin && b.startMin < a.endMin
-    const n = list.length
-    const adj: number[][] = Array.from({ length: n }, () => [])
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        if (overlaps(list[i], list[j])) {
-          adj[i].push(j)
-          adj[j].push(i)
-        }
-      }
-    }
-    const comp: number[] = Array(n).fill(-1)
-    let cc = 0
-    for (let i = 0; i < n; i++) {
-      if (comp[i] !== -1) continue
-      const q = [i]
-      comp[i] = cc
-      while (q.length) {
-        const u = q.shift()!
-        for (const v of adj[u])
-          if (comp[v] === -1) {
-            comp[v] = cc
-            q.push(v)
-          }
-      }
-      cc++
-    }
-    const result: Record<number, { lane: number; lanesInComp: number }> = {}
-    for (let c = 0; c < cc; c++) {
-      const nodes = list.filter((_, i) => comp[i] === c).sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin)
-
-      const lanesEnd: number[] = []
-      for (const t of nodes) {
-        let lane = -1
-        for (let li = 0; li < lanesEnd.length; li++) {
-          if (lanesEnd[li] <= t.startMin) {
-            lane = li
-            break
-          }
-        }
-        if (lane === -1) {
-          lanesEnd.push(t.endMin)
-          lane = lanesEnd.length - 1
-        } else {
-          lanesEnd[lane] = t.endMin
-        }
-        result[t.idx] = { lane, lanesInComp: lanesEnd.length }
-      }
-    }
-    return result
-  }
-
-  // quais colunas mostrar (todos ou 1 filtrado)
+  // Quais colunas mostrar (filtro de responsável)
   const responsaveisVisiveis = useMemo(() => {
-    return filterResp === "(todos)" ? RESPONSAVEIS : RESPONSAVEIS.filter((r) => r === filterResp)
-  }, [filterResp])
+    return filterResp === "(todos)" ? RESPONSAVEIS : RESPONSAVEIS.filter((r) => r === filterResp);
+  }, [filterResp]);
 
   /* ===========================
      UI helpers
   =========================== */
   function shiftDate(days: number) {
-    const d = ymdToDate(selectedDate)
-    d.setDate(d.getDate() + days)
-    setSelectedDate(dateToYMD(d))
+    const d = ymdToDate(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(dateToYMD(d));
   }
 
   /* ===========================
      Render
   =========================== */
-
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <header className="flex flex-wrap items-center gap-3 justify-between mb-4">
           <h1 className="text-2xl md:text-3xl font-semibold">Esteira de Demandas</h1>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => shiftDate(-1)}
-              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
-            >
-              ◀︎
-            </button>
+            <button onClick={() => shiftDate(-1)} className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700">◀︎</button>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             />
-            <button
-              onClick={() => shiftDate(1)}
-              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
-            >
-              ▶︎
-            </button>
-            <button
-              onClick={() => setShowNew(true)}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
-            >
+            <button onClick={() => shiftDate(1)} className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700">▶︎</button>
+            <button onClick={() => setShowNew(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium">
               + Nova demanda
             </button>
           </div>
@@ -457,12 +297,9 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todos)</option>
-              {RESPONSAVEIS.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
+              {RESPONSAVEIS.map((r) => <option key={r}>{r}</option>)}
             </select>
           </div>
-
           <div>
             <span className="block text-sm text-neutral-400 mb-1">Filtrar por operação</span>
             <select
@@ -471,9 +308,7 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todas)</option>
-              {OPERACOES.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
+              {OPERACOES.map((o) => <option key={o}>{o}</option>)}
             </select>
           </div>
         </div>
@@ -486,122 +321,62 @@ export default function App() {
           <Kpi label="No prazo" value={stats.noPrazo} color="sky" />
         </div>
 
-        {/* Volumetria por responsável */}
+        {/* Volumetria por responsável (voltou) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
           <VolumeCard title="Por responsável" rows={volumetriaPorResp} />
         </div>
 
-        {/* Timeline em colunas por responsável */}
-        <div className="rounded-2xl bg-neutral-900 p-4 shadow-xl overflow-x-auto">
-          <div
-            className="grid gap-6 min-w-max"
-            style={{ gridTemplateColumns: `110px repeat(${responsaveisVisiveis.length}, minmax(200px, 1fr))` }}
-          >
-            {/* Escala de horas */}
-            <HourScale timeline={timeline} currentTime={currentTime} />
+        {/* KANBAN por responsável (não usa posicionamento vertical por hora) */}
+        <div
+          className="grid gap-4"
+          style={{ gridTemplateColumns: `repeat(${responsaveisVisiveis.length}, minmax(0, 1fr))` }}
+        >
+          {responsaveisVisiveis.map((resp) => {
+            const list = filteredTasks
+              .filter((t) => t.responsavel === resp)
+              .sort((a, b) => hhmmToMin(a.inicio) - hhmmToMin(b.inicio) || hhmmToMin(a.fim) - hhmmToMin(b.fim) || a.titulo.localeCompare(b.titulo));
 
-            {/* Uma coluna para cada responsável */}
-            {responsaveisVisiveis.map((resp) => {
-              const only = filteredTasks
-                .filter((t) => t.responsavel === resp)
-                .map((t, i) => ({
-                  ...t,
-                  startMin: hhmmToMin(t.inicio),
-                  endMin: hhmmToMin(t.fim),
-                  idx: i,
-                })) as Enriched[]
-
-              const lanes = computeLanes(only)
-
-              return (
-                <div key={resp} className="relative">
-                  {/* cabeçalho da coluna */}
-                  <div className="text-sm text-neutral-200 font-medium mb-2 flex items-center justify-between">
-                    <span>{resp}</span>
-                    <span className="text-neutral-400">{only.length}</span>
-                  </div>
-
-                  <div className="relative h-[860px]">
-                    {/* linhas de grade (apenas visuais) */}
-                    {Array.from({ length: timeline.totalMin / 30 + 1 }).map((_, i) => {
-                      const m = timeline.startMin + i * 30
-                      const h = String(Math.floor(m / 60)).padStart(2, "0")
-                      const mm = String(m % 60).padStart(2, "0")
-                      const t = `${h}:${mm}`
-                      return (
-                        <div
-                          key={i}
-                          className={`absolute left-0 right-0 h-px ${t.endsWith(":00") ? "bg-neutral-700" : "bg-neutral-800/50"}`}
-                          style={{ top: `${percentFromTime(t, timeline)}%` }}
-                        />
-                      )
-                    })}
-
-                    {isHHMM(currentTime) &&
-                      hhmmToMin(currentTime) >= timeline.startMin &&
-                      hhmmToMin(currentTime) <= timeline.endMin && (
-                        <div
-                          className="absolute left-0 right-0 h-0.5 bg-yellow-400 z-10 pointer-events-none"
-                          style={{ top: `${percentFromTime(currentTime, timeline)}%` }}
-                        >
-                          <div className="absolute -left-1 -top-1 w-2 h-2 bg-yellow-400 rounded-full" />
-                          <div className="absolute right-0 -top-3 text-xs text-yellow-400 font-medium">
-                            AGORA {currentTime}
-                          </div>
-                        </div>
-                      )}
-
-                    {/* cartões da coluna */}
-                    {only.map((t, i) => {
-                      const top = percentFromTime(t.inicio, timeline)
-                      const bottom = percentFromTime(t.fim, timeline)
-                      const height = Math.max(1, bottom - top)
-
-                      const info = lanes[i] ?? { lane: 0, lanesInComp: 1 }
-                      const gap = 12
-                      const left = `calc(${(info.lane / info.lanesInComp) * 100}% + ${info.lane * gap}px)`
-                      const width = `calc(${100 / info.lanesInComp}% - ${((info.lanesInComp - 1) / info.lanesInComp) * gap}px)`
-
-                      let bg = "bg-sky-500 text-neutral-900"
-                      let badge = "NO PRAZO"
-                      const nowMin = hhmmToMin(currentTime)
-                      if (t.concluida) {
-                        bg = "bg-emerald-500"
-                        badge = "CONCLUÍDA"
-                      } else if (nowMin >= t.endMin) {
-                        bg = "bg-red-500"
-                        badge = "ATRASADA"
-                      }
-
-                      return (
-                        <div
-                          key={t.id}
-                          className="absolute rounded-xl shadow-lg overflow-hidden cursor-pointer"
-                          style={{ top: `${top}%`, height: `${height}%`, left, width }}
-                          onClick={() => setEditing(t)}
-                        >
-                          <div className={`w-full h-full ${bg} flex items-center justify-between px-3`}>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] uppercase tracking-wide bg-black/20 px-2 py-0.5 rounded-full">
-                                {badge}
-                              </span>
-                              <span className="font-medium text-sm md:text-base line-clamp-2">
-                                {t.titulo}
-                                {t.operacao && <span className="ml-2 text-xs opacity-90">— {t.operacao}</span>}
-                              </span>
-                            </div>
-                            <span className="text-xs md:text-sm opacity-80">
-                              {t.inicio} – {t.fim}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+            return (
+              <div key={resp} className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium">{resp}</h3>
+                  <span className="text-sm text-neutral-400">{list.length}</span>
                 </div>
-              )
-            })}
-          </div>
+
+                <div className="space-y-3">
+                  {list.length === 0 && <div className="text-sm text-neutral-500">Sem demandas neste dia</div>}
+
+                  {list.map((t) => {
+                    let badge = "NO PRAZO";
+                    let badgeCls = "bg-sky-500";
+                    const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
+                    if (t.concluida) { badge = "CONCLUÍDA"; badgeCls = "bg-emerald-500"; }
+                    else if (hhmmToMin(t.fim) <= nowMin) { badge = "ATRASADA"; badgeCls = "bg-red-500"; }
+
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setEditing(t)}
+                        className="w-full text-left rounded-xl bg-neutral-800/70 hover:bg-neutral-800 border border-neutral-700 px-3 py-2 shadow-sm"
+                        title={`${t.titulo} • ${t.inicio}-${t.fim}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] uppercase tracking-wide text-neutral-900 px-2 py-0.5 rounded-full ${badgeCls}`}>
+                            {badge}
+                          </span>
+                          <span className="text-xs text-neutral-300">{t.inicio} – {t.fim}</span>
+                        </div>
+                        <div className="mt-1 font-medium">{t.titulo}</div>
+                        {t.operacao && (
+                          <div className="text-xs text-neutral-400 mt-0.5">Operação: {t.operacao}</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -612,8 +387,7 @@ export default function App() {
           onCancel={() => setShowNew(false)}
           onSubmit={async (payload) => {
             try {
-              const seriesId = payload.recKind && payload.recKind !== "once" ? crypto.randomUUID() : undefined
-              await addTaskSafe({
+              await addTaskWithRecurrence({
                 titulo: payload.titulo.trim() || "Demanda",
                 inicio: payload.inicio,
                 fim: payload.fim,
@@ -622,12 +396,13 @@ export default function App() {
                 operacao: payload.operacao,
                 ymd: selectedDate,
                 recKind: payload.recKind,
-                weekDay: payload.weekDay,
-                seriesId,
-              } as any)
-              setShowNew(false)
+                seriesId: undefined, // será gerado dentro de addTaskWithRecurrence
+                workspaceId: ws,
+                createdAt: Date.now(),
+              } as any);
+              setShowNew(false);
             } catch (e: any) {
-              alert(`Não foi possível salvar a demanda.\n${String(e?.message || e)}`)
+              alert(`Não foi possível salvar a demanda.\n${String(e?.message || e)}`);
             }
           }}
         />
@@ -639,50 +414,46 @@ export default function App() {
           task={editing}
           onCancel={() => setEditing(null)}
           onDeleteOne={async () => {
-            await deleteTaskOne(editing.id, editing.ymd)
-            setEditing(null)
+            await deleteTaskOne(editing.id, editing.ymd);
+            setEditing(null);
           }}
           onDeleteAll={
             editing.seriesId
               ? async () => {
                   if (confirm("Excluir TODAS as ocorrências desta demanda recorrente?")) {
-                    await deleteAllOccurrences(editing.seriesId)
-                    setEditing(null)
+                    await deleteAllOccurrences(editing.seriesId);
+                    setEditing(null);
                   }
                 }
               : undefined
           }
           onSubmit={async (patch) => {
-            await updateTaskSafe(editing.id, editing.ymd, patch)
-            setEditing(null)
+            await updateTaskSafe(editing.id, editing.ymd, patch);
+            setEditing(null);
           }}
         />
       )}
     </div>
-  )
+  );
 }
 
 /* ===========================
-   Componentes
+   Componentes UI
 =========================== */
-
 function Kpi({
   label,
   value,
   color,
 }: {
-  label: string
-  value: number
-  color: "emerald" | "red" | "sky" | "slate"
+  label: string;
+  value: number;
+  color: "emerald" | "red" | "sky" | "slate";
 }) {
   const bar =
-    color === "emerald"
-      ? "bg-emerald-500"
-      : color === "red"
-        ? "bg-red-500"
-        : color === "sky"
-          ? "bg-sky-500"
-          : "bg-slate-400"
+    color === "emerald" ? "bg-emerald-500"
+    : color === "red"       ? "bg-red-500"
+    : color === "sky"       ? "bg-sky-500"
+    :                         "bg-slate-400";
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-lg relative overflow-hidden">
       <div className={`absolute inset-y-0 left-0 w-1.5 ${bar}`} />
@@ -692,7 +463,7 @@ function Kpi({
       </div>
       <div className="mt-2 text-3xl font-semibold">{value}</div>
     </div>
-  )
+  );
 }
 
 function VolumeCard({ title, rows }: { title: string; rows: [string, number][] }) {
@@ -709,58 +480,34 @@ function VolumeCard({ title, rows }: { title: string; rows: [string, number][] }
         ))}
       </div>
     </div>
-  )
-}
-
-function HourScale({ timeline, currentTime }: { timeline: Timeline; currentTime: string }) {
-  const ticks: string[] = []
-  for (let m = timeline.startMin; m <= timeline.endMin; m += 30) {
-    const h = String(Math.floor(m / 60)).padStart(2, "0")
-    const min = String(m % 60).padStart(2, "0")
-    ticks.push(`${h}:${min}`)
-  }
-  return (
-    <div className="relative select-none pr-2">
-      <div className="absolute right-0 top-0 bottom-0 w-px bg-neutral-800" />
-      <div className="h-[860px] flex flex-col justify-between text-xs text-neutral-400">
-        {ticks.map((t) => (
-          <div key={t} className="relative flex items-center">
-            <span className={t === currentTime ? "text-yellow-400 font-bold" : ""}>{t}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  );
 }
 
 /* ---------- Modais ---------- */
-
 type ModalTaskInput = {
-  titulo: string
-  responsavel: string
-  operacao: string
-  inicio: string
-  fim: string
-  recKind?: RecKind
-  weekDay?: number
-}
+  titulo: string;
+  responsavel: string;
+  operacao: string;
+  inicio: string;
+  fim: string;
+  recKind?: RecKind;
+};
 
 function TaskModal({
   title,
   onCancel,
   onSubmit,
 }: {
-  title: string
-  onCancel: () => void
-  onSubmit: (t: ModalTaskInput) => Promise<void>
+  title: string;
+  onCancel: () => void;
+  onSubmit: (t: ModalTaskInput) => Promise<void>;
 }) {
-  const [titulo, setTitulo] = useState("")
-  const [responsavel, setResponsavel] = useState(RESPONSAVEIS[0])
-  const [operacao, setOperacao] = useState(OPERACOES[0])
-  const [inicio, setInicio] = useState("08:00")
-  const [fim, setFim] = useState("09:00")
-  const [recKind, setRecKind] = useState<RecKind>("once")
-  const [weekDay, setWeekDay] = useState<number>(1) // Default to Monday
+  const [titulo, setTitulo] = useState("");
+  const [responsavel, setResponsavel] = useState(RESPONSAVEIS[0]);
+  const [operacao, setOperacao] = useState(OPERACOES[0]);
+  const [inicio, setInicio] = useState("08:00");
+  const [fim, setFim] = useState("09:00");
+  const [recKind, setRecKind] = useState<RecKind>("once");
 
   return (
     <Modal onClose={onCancel}>
@@ -784,9 +531,7 @@ function TaskModal({
             onChange={(e) => setResponsavel(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {RESPONSAVEIS.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
+            {RESPONSAVEIS.map((r) => <option key={r}>{r}</option>)}
           </select>
         </label>
 
@@ -797,9 +542,7 @@ function TaskModal({
             onChange={(e) => setOperacao(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {OPERACOES.map((o) => (
-              <option key={o}>{o}</option>
-            ))}
+            {OPERACOES.map((o) => <option key={o}>{o}</option>)}
           </select>
         </label>
 
@@ -815,23 +558,6 @@ function TaskModal({
             <option value="weekly">Uma vez por semana</option>
           </select>
         </label>
-
-        {recKind === "weekly" && (
-          <label className="text-sm md:col-span-2">
-            <span className="block mb-1 text-neutral-300">Dia da semana</span>
-            <select
-              value={weekDay}
-              onChange={(e) => setWeekDay(Number(e.target.value))}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
-            >
-              {DAYS_OF_WEEK.map((day) => (
-                <option key={day.value} value={day.value}>
-                  {day.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Hora início</span>
@@ -861,18 +587,10 @@ function TaskModal({
         <button
           onClick={async () => {
             if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) {
-              alert("Verifique os horários.")
-              return
+              alert("Verifique os horários.");
+              return;
             }
-            await onSubmit({
-              titulo: titulo.trim() || "Demanda",
-              responsavel,
-              operacao,
-              inicio,
-              fim,
-              recKind,
-              weekDay: recKind === "weekly" ? weekDay : undefined,
-            })
+            await onSubmit({ titulo: titulo.trim() || "Demanda", responsavel, operacao, inicio, fim, recKind });
           }}
           className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
         >
@@ -880,7 +598,7 @@ function TaskModal({
         </button>
       </div>
     </Modal>
-  )
+  );
 }
 
 function EditModal({
@@ -890,18 +608,18 @@ function EditModal({
   onDeleteAll,
   onSubmit,
 }: {
-  task: Task
-  onCancel: () => void
-  onDeleteOne: () => Promise<void>
-  onDeleteAll?: () => Promise<void>
-  onSubmit: (patch: Partial<Task>) => Promise<void>
+  task: Task;
+  onCancel: () => void;
+  onDeleteOne: () => Promise<void>;
+  onDeleteAll?: () => Promise<void>;
+  onSubmit: (patch: Partial<Task>) => Promise<void>;
 }) {
-  const [titulo, setTitulo] = useState(task.titulo)
-  const [responsavel, setResponsavel] = useState(task.responsavel || RESPONSAVEIS[0])
-  const [operacao, setOperacao] = useState(task.operacao || OPERACOES[0])
-  const [inicio, setInicio] = useState(task.inicio)
-  const [fim, setFim] = useState(task.fim)
-  const [concluida, setConcluida] = useState(task.concluida)
+  const [titulo, setTitulo] = useState(task.titulo);
+  const [responsavel, setResponsavel] = useState(task.responsavel || RESPONSAVEIS[0]);
+  const [operacao, setOperacao] = useState(task.operacao || OPERACOES[0]);
+  const [inicio, setInicio] = useState(task.inicio);
+  const [fim, setFim] = useState(task.fim);
+  const [concluida, setConcluida] = useState(task.concluida);
 
   return (
     <Modal onClose={onCancel}>
@@ -924,9 +642,7 @@ function EditModal({
             onChange={(e) => setResponsavel(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {RESPONSAVEIS.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
+            {RESPONSAVEIS.map((r) => <option key={r}>{r}</option>)}
           </select>
         </label>
 
@@ -937,9 +653,7 @@ function EditModal({
             onChange={(e) => setOperacao(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {OPERACOES.map((o) => (
-              <option key={o}>{o}</option>
-            ))}
+            {OPERACOES.map((o) => <option key={o}>{o}</option>)}
           </select>
         </label>
 
@@ -951,8 +665,8 @@ function EditModal({
               task.recKind === "daily"
                 ? "todos os dias"
                 : task.recKind === "weekly"
-                  ? `uma vez por semana${task.weekDay !== undefined ? ` (${DAYS_OF_WEEK[task.weekDay]?.label})` : ""}`
-                  : `apenas ${task.ymd}`
+                ? "uma vez por semana"
+                : `apenas ${task.ymd}`
             }
             className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-neutral-500"
           />
@@ -1006,8 +720,8 @@ function EditModal({
           <button
             onClick={async () => {
               if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) {
-                alert("Verifique os horários.")
-                return
+                alert("Verifique os horários.");
+                return;
               }
               await onSubmit({
                 titulo: titulo.trim() || "Demanda",
@@ -1016,7 +730,7 @@ function EditModal({
                 responsavel,
                 operacao,
                 concluida,
-              })
+              });
             }}
             className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
           >
@@ -1025,14 +739,14 @@ function EditModal({
         </div>
       </div>
     </Modal>
-  )
+  );
 }
 
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-2xl shadow-xl">
         <button
           className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-200"
           onClick={onClose}
@@ -1043,5 +757,5 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
         {children}
       </div>
     </div>
-  )
+  );
 }
