@@ -7,10 +7,12 @@ import {
   orderBy,
   query,
   updateDoc,
-  setDoc,
+  collectionGroup,
+  where,
   getDocs,
+  writeBatch,
 } from "firebase/firestore";
-import { db, operationsCollection, tasksCollection } from "./lib/firebase";
+import { db, tasksCollection } from "./lib/firebase";
 
 /* ===========================
    Tipos
@@ -22,12 +24,12 @@ type Task = {
   id: string;
   titulo: string;
   inicio: string; // "HH:MM"
-  fim: string; // "HH:MM"
+  fim: string;    // "HH:MM"
   concluida: boolean;
   responsavel: string;
   operacao: string;
-  ymd: string; // "YYYY-MM-DD"
-  seriesId?: string;
+  ymd: string;        // "YYYY-MM-DD"
+  seriesId?: string;  // identifica a série para recorrentes
   recKind?: RecKind;
   workspaceId: string;
   createdAt: number;
@@ -36,10 +38,9 @@ type Task = {
 type Timeline = { startMin: number; endMin: number; totalMin: number };
 
 /* ===========================
-   Utilitários (robustos)
+   Utilitários robustos
 =========================== */
 
-// Valida "HH:MM"
 function isHHMM(v: any): v is string {
   return typeof v === "string" && /^\d{2}:\d{2}$/.test(v);
 }
@@ -50,27 +51,23 @@ function hhmmToMin(hhmm: string): number {
   if (Number.isNaN(h) || Number.isNaN(m)) return 0;
   return h * 60 + m;
 }
-
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
-
 function buildTimeline(start: string, end: string): Timeline {
   const startMin = hhmmToMin(start);
   const endMin = hhmmToMin(end);
   return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) };
 }
-
 function percentFromTime(hhmm: string, tl: Timeline): number {
   const pos = (isHHMM(hhmm) ? hhmmToMin(hhmm) : tl.startMin) - tl.startMin;
   return clamp((pos / tl.totalMin) * 100, 0, 100);
 }
-
 function ymdToDate(ymd: string) {
   if (typeof ymd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-  }
+    }
   const [Y, M, D] = ymd.split("-").map(Number);
   return new Date(Y, (M || 1) - 1, D || 1, 0, 0, 0, 0);
 }
@@ -82,7 +79,7 @@ function dateToYMD(d: Date) {
 }
 
 /* ===========================
-   Dados base (responsáveis)
+   Dados base
 =========================== */
 
 const RESPONSAVEIS = [
@@ -91,6 +88,20 @@ const RESPONSAVEIS = [
   "Luciano Miranda",
   "João Vinicius",
   "Lucas Siqueira",
+];
+
+// Lista fixa de Operações (sem “adicionar nova”)
+const OPS = [
+  "FMU",
+  "INPISRALI",
+  "COGNA",
+  "SINGULARIDADES",
+  "PÓS COGNA",
+  "UFEM",
+  "TELECOM",
+  "FGTS",
+  "DIROMA",
+  "ESTÁCIO",
 ];
 
 /* ===========================
@@ -104,7 +115,6 @@ export default function App() {
 
   const [selectedDate, setSelectedDate] = useState(() => dateToYMD(new Date()));
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [ops, setOps] = useState<string[]>(["FMU", "COGNA"]);
 
   // filtros
   const [filterResp, setFilterResp] = useState<string>("(todos)");
@@ -114,30 +124,13 @@ export default function App() {
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
 
-  // timeline (08:00–20:00 com slots de 30m, e gap maior entre cartões)
+  // timeline (08:00–20:00) – altura maior = mais espaço entre os blocos de 30m
   const dayStart = "08:00";
   const dayEnd = "20:00";
   const timeline = useMemo(() => buildTimeline(dayStart, dayEnd), []);
 
   /* ===========================
-     Carrega Operações (lista suspensa)
-  =========================== */
-  useEffect(() => {
-    const qy = query(operationsCollection(ws));
-    return onSnapshot(qy, (snap) => {
-      const list: string[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as any;
-        const name = String(data?.name ?? "").trim();
-        if (name) list.push(name);
-      });
-      // fallback inicial se não houverem docs
-      setOps(list.length ? list : ["FMU", "COGNA"]);
-    });
-  }, [ws]);
-
-  /* ===========================
-     Carrega/escuta tarefas do dia (ROBUSTO)
+     Escuta tarefas do dia
   =========================== */
   useEffect(() => {
     const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"));
@@ -145,14 +138,12 @@ export default function App() {
       const list: Task[] = [];
       snap.forEach((d) => {
         const data = d.data() as any;
-
         const ini = data?.inicio;
         const fim = data?.fim;
         if (!isHHMM(ini) || !isHHMM(fim)) {
           console.warn("Ignorando tarefa com horários inválidos", d.id, data);
           return;
         }
-
         list.push({
           id: d.id,
           titulo: String(data?.titulo ?? "Demanda"),
@@ -175,18 +166,6 @@ export default function App() {
   /* ===========================
      Ações básicas (CRUD)
   =========================== */
-
-  async function createOperation(name: string) {
-    const clean = name.trim();
-    if (!clean) return;
-    // evita duplicatas simples
-    const already = ops.map((o) => o.toLowerCase());
-    if (!already.includes(clean.toLowerCase())) {
-      // cria doc op (id = nome)
-      await setDoc(doc(operationsCollection(ws), clean), { name: clean, ws, createdAt: Date.now() });
-    }
-  }
-
   async function addTask(input: Omit<Task, "id" | "workspaceId" | "createdAt">) {
     await addDoc(tasksCollection(ws, input.ymd), {
       ...input,
@@ -194,17 +173,29 @@ export default function App() {
       createdAt: Date.now(),
     });
   }
-
   async function updateTask(tid: string, ymd: string, patch: Partial<Task>) {
     await updateDoc(doc(tasksCollection(ws, ymd), tid), patch as any);
   }
-
   async function deleteTask(tid: string, ymd: string) {
     await deleteDoc(doc(tasksCollection(ws, ymd), tid));
   }
 
+  // Excluir todas as ocorrências de uma série recorrente no workspace
+  async function deleteSeries(seriesId: string) {
+    const qy = query(
+      collectionGroup(db, "tasks"),
+      where("workspaceId", "==", ws),
+      where("seriesId", "==", seriesId)
+    );
+    const qs = await getDocs(qy);
+    if (qs.empty) return;
+    const batch = writeBatch(db);
+    qs.forEach((snap) => batch.delete(snap.ref));
+    await batch.commit();
+  }
+
   /* ===========================
-     Filtros aplicados
+     Filtros
   =========================== */
   const visibleTasks = useMemo(() => {
     return tasks.filter((t) => {
@@ -215,7 +206,7 @@ export default function App() {
   }, [tasks, filterResp, filterOp]);
 
   /* ===========================
-     Estatísticas e volumetria
+     Estatísticas
   =========================== */
   const stats = useMemo(() => {
     const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
@@ -230,24 +221,8 @@ export default function App() {
     return { total: visibleTasks.length, concluida: c, atrasada: a, noPrazo: p };
   }, [visibleTasks]);
 
-  const volumetriaPorResp = useMemo(() => {
-    const map = new Map<string, number>();
-    visibleTasks.forEach((t) => {
-      map.set(t.responsavel, (map.get(t.responsavel) || 0) + 1);
-    });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [visibleTasks]);
-
-  const volumetriaPorOp = useMemo(() => {
-    const map = new Map<string, number>();
-    visibleTasks.forEach((t) => {
-      map.set(t.operacao, (map.get(t.operacao) || 0) + 1);
-    });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [visibleTasks]);
-
   /* ===========================
-     Layout de sobreposição (tarefas lado a lado)
+     Lado a lado (interval partitioning)
   =========================== */
   type Enriched = Task & { startMin: number; endMin: number; idx: number };
   const enriched = useMemo<Enriched[]>(() => {
@@ -260,8 +235,6 @@ export default function App() {
   }, [visibleTasks]);
 
   const lanesInfo = useMemo(() => {
-    // algoritmo de "interval partitioning"
-    // devolve para cada índice: { lane, lanesInComp }
     const overlaps = (a: Enriched, b: Enriched) => a.startMin < b.endMin && b.startMin < a.endMin;
     const n = enriched.length;
     const adj: number[][] = Array.from({ length: n }, () => []);
@@ -273,7 +246,6 @@ export default function App() {
         }
       }
     }
-    // componentes
     const comp: number[] = Array(n).fill(-1);
     let cc = 0;
     for (let i = 0; i < n; i++) {
@@ -286,7 +258,6 @@ export default function App() {
       }
       cc++;
     }
-    // em cada componente, alocar lanes
     const result: Record<number, { lane: number; lanesInComp: number }> = {};
     for (let c = 0; c < cc; c++) {
       const nodes = enriched
@@ -296,10 +267,7 @@ export default function App() {
       for (const t of nodes) {
         let lane = -1;
         for (let li = 0; li < lanesEnd.length; li++) {
-          if (lanesEnd[li] <= t.startMin) {
-            lane = li;
-            break;
-          }
+          if (lanesEnd[li] <= t.startMin) { lane = li; break; }
         }
         if (lane === -1) {
           lanesEnd.push(t.endMin);
@@ -314,9 +282,8 @@ export default function App() {
   }, [enriched]);
 
   /* ===========================
-     UI helpers
+     Helpers UI
   =========================== */
-
   function shiftDate(days: number) {
     const d = ymdToDate(selectedDate);
     d.setDate(d.getDate() + days);
@@ -326,22 +293,37 @@ export default function App() {
   /* ===========================
      Render
   =========================== */
-
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 p-6">
       <div className="max-w-6xl mx-auto">
         <header className="flex flex-wrap items-center gap-3 justify-between mb-4">
           <h1 className="text-2xl md:text-3xl font-semibold">Esteira de Demandas</h1>
           <div className="flex items-center gap-2">
-            <button onClick={() => shiftDate(-1)} className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700">◀︎</button>
+            <button
+              type="button"
+              onClick={() => shiftDate(-1)}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
+            >
+              ◀︎
+            </button>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             />
-            <button onClick={() => shiftDate(1)} className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700">▶︎</button>
-            <button onClick={() => setShowNew(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium">
+            <button
+              type="button"
+              onClick={() => shiftDate(1)}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
+            >
+              ▶︎
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowNew(true)}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
+            >
               + Nova demanda
             </button>
           </div>
@@ -371,14 +353,14 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todas)</option>
-              {ops.map((o) => (
+              {OPS.map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Cards de KPI */}
+        {/* KPI cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <Kpi label="Demandas no dia" value={stats.total} color="slate" />
           <Kpi label="Concluídas" value={stats.concluida} color="emerald" />
@@ -386,26 +368,19 @@ export default function App() {
           <Kpi label="No prazo" value={stats.noPrazo} color="sky" />
         </div>
 
-        {/* Volumetria por Responsável e por Operação */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-          <VolumeCard title="Por responsável" rows={volumetriaPorResp} />
-          <VolumeCard title="Por operação" rows={volumetriaPorOp} />
-        </div>
+        {/* (Removido card “Por operação” conforme pedido) */}
 
         {/* Timeline */}
         <div className="relative bg-neutral-900 rounded-2xl p-4 shadow-xl grid grid-cols-[110px_1fr] gap-6">
           <HourScale timeline={timeline} />
-          <div className="relative h-[860px]"> {/* altura maior = mais espaçamento entre faixas de 30m */}
-            {/* NOW line simples (opcional) */}
-            {/* <NowLine now={new Date()} timeline={timeline} /> */}
-
+          <div className="relative h-[1000px]">
             {enriched.map((t, i) => {
               const top = percentFromTime(t.inicio, timeline);
               const bottom = percentFromTime(t.fim, timeline);
               const height = Math.max(1, bottom - top);
 
               const info = lanesInfo[i] ?? { lane: 0, lanesInComp: 1 };
-              const gap = 12; // gap maior
+              const gap = 14; // espaço horizontal entre cartões
               const left = `calc(${(info.lane / info.lanesInComp) * 100}% + ${info.lane * gap}px)`;
               const width = `calc(${100 / info.lanesInComp}% - ${((info.lanesInComp - 1) / info.lanesInComp) * gap}px)`;
 
@@ -432,10 +407,7 @@ export default function App() {
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-wide bg-black/20 px-2 py-0.5 rounded-full">{badge}</span>
                       <span className="font-medium text-sm md:text-base line-clamp-2">
-                        {t.titulo}
-                        {t.operacao ? (
-                          <span className="ml-2 text-xs opacity-90">— {t.operacao}</span>
-                        ) : null}
+                        {t.titulo} {t.operacao && <span className="ml-2 text-xs opacity-90">— {t.operacao}</span>}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -460,8 +432,6 @@ export default function App() {
       {showNew && (
         <TaskModal
           title="Nova demanda"
-          ops={ops}
-          onAddOperation={createOperation}
           onCancel={() => setShowNew(false)}
           onSubmit={async (payload) => {
             await addTask({
@@ -472,7 +442,7 @@ export default function App() {
               responsavel: payload.responsavel,
               operacao: payload.operacao,
               ymd: selectedDate,
-              recKind: payload.recKind, // apenas informativo
+              recKind: payload.recKind,
               seriesId: payload.recKind && payload.recKind !== "once" ? crypto.randomUUID() : undefined,
               workspaceId: ws,
               createdAt: Date.now(),
@@ -486,13 +456,22 @@ export default function App() {
       {editing && (
         <EditModal
           task={editing}
-          ops={ops}
-          onAddOperation={createOperation}
           onCancel={() => setEditing(null)}
           onDelete={async () => {
             await deleteTask(editing.id, editing.ymd);
             setEditing(null);
           }}
+          onDeleteSeries={
+            editing.seriesId
+              ? async () => {
+                  if (!editing.seriesId) return;
+                  const sure = confirm("Excluir TODAS as ocorrências desta demanda recorrente?");
+                  if (!sure) return;
+                  await deleteSeries(editing.seriesId);
+                  setEditing(null);
+                }
+              : undefined
+          }
           onSubmit={async (patch) => {
             await updateTask(editing.id, editing.ymd, patch);
             setEditing(null);
@@ -536,23 +515,6 @@ function Kpi({
   );
 }
 
-function VolumeCard({ title, rows }: { title: string; rows: [string, number][] }) {
-  return (
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-lg">
-      <h3 className="text-sm text-neutral-300 mb-2">{title}</h3>
-      <div className="space-y-2">
-        {rows.length === 0 && <div className="text-sm text-neutral-500">Sem dados</div>}
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between text-sm">
-            <span className="text-neutral-300">{k || "—"}</span>
-            <span className="text-neutral-100 font-medium">{v}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function HourScale({ timeline }: { timeline: Timeline }) {
   const ticks: string[] = [];
   for (let m = timeline.startMin; m <= timeline.endMin; m += 30) {
@@ -563,11 +525,15 @@ function HourScale({ timeline }: { timeline: Timeline }) {
   return (
     <div className="relative select-none pr-2">
       <div className="absolute right-0 top-0 bottom-0 w-px bg-neutral-800" />
-      <div className="h-[860px] flex flex-col justify-between text-xs text-neutral-400">
+      <div className="h-[1000px] flex flex-col justify-between text-xs text-neutral-400">
         {ticks.map((t) => (
           <div key={t} className="relative flex items-center">
             <span>{t}</span>
-            <div className={`absolute left-full ml-4 top-1/2 -translate-y-1/2 w-[9999px] h-px ${t.endsWith(":00") ? "bg-neutral-700" : "bg-neutral-800/50"}`} />
+            <div
+              className={`absolute left-full ml-4 top-1/2 -translate-y-1/2 w-[9999px] h-px ${
+                t.endsWith(":00") ? "bg-neutral-700" : "bg-neutral-800/50"
+              }`}
+            />
           </div>
         ))}
       </div>
@@ -588,23 +554,20 @@ type ModalTaskInput = {
 
 function TaskModal({
   title,
-  ops,
-  onAddOperation,
   onCancel,
   onSubmit,
 }: {
   title: string;
-  ops: string[];
-  onAddOperation: (name: string) => Promise<void> | void;
   onCancel: () => void;
   onSubmit: (t: ModalTaskInput) => Promise<void>;
 }) {
   const [titulo, setTitulo] = useState("");
   const [responsavel, setResponsavel] = useState(RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(ops[0] || "");
+  const [operacao, setOperacao] = useState(OPS[0]);
   const [inicio, setInicio] = useState("08:00");
   const [fim, setFim] = useState("09:00");
   const [recKind, setRecKind] = useState<RecKind>("once");
+  const [saving, setSaving] = useState(false);
 
   return (
     <Modal onClose={onCancel}>
@@ -629,9 +592,7 @@ function TaskModal({
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
             {RESPONSAVEIS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </label>
@@ -640,23 +601,12 @@ function TaskModal({
           <span className="block mb-1 text-neutral-300">Operação</span>
           <select
             value={operacao}
-            onChange={async (e) => {
-              const v = e.target.value;
-              if (v === "__add__") {
-                const name = prompt("Nome da operação:");
-                if (name) await onAddOperation(name);
-              } else {
-                setOperacao(v);
-              }
-            }}
+            onChange={(e) => setOperacao(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {ops.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
+            {OPS.map((o) => (
+              <option key={o} value={o}>{o}</option>
             ))}
-            <option value="__add__">+ Adicionar nova operação…</option>
           </select>
         </label>
 
@@ -695,18 +645,29 @@ function TaskModal({
       </div>
 
       <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">
+        <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">
           Cancelar
         </button>
         <button
+          type="button"
+          disabled={saving}
           onClick={async () => {
             if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) {
               alert("Verifique os horários.");
               return;
             }
-            await onSubmit({ titulo: titulo.trim() || "Demanda", responsavel, operacao, inicio, fim, recKind });
+            setSaving(true);
+            await onSubmit({
+              titulo: (titulo || "").trim() || "Demanda",
+              responsavel,
+              operacao,
+              inicio,
+              fim,
+              recKind,
+            });
+            setSaving(false);
           }}
-          className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
+          className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium disabled:opacity-60"
         >
           Salvar
         </button>
@@ -717,25 +678,24 @@ function TaskModal({
 
 function EditModal({
   task,
-  ops,
-  onAddOperation,
   onCancel,
   onDelete,
+  onDeleteSeries,
   onSubmit,
 }: {
   task: Task;
-  ops: string[];
-  onAddOperation: (name: string) => Promise<void> | void;
   onCancel: () => void;
   onDelete: () => Promise<void>;
+  onDeleteSeries?: () => Promise<void>;
   onSubmit: (patch: Partial<Task>) => Promise<void>;
 }) {
   const [titulo, setTitulo] = useState(task.titulo);
   const [responsavel, setResponsavel] = useState(task.responsavel || RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(task.operacao || ops[0] || "");
+  const [operacao, setOperacao] = useState(task.operacao || OPS[0]);
   const [inicio, setInicio] = useState(task.inicio);
   const [fim, setFim] = useState(task.fim);
   const [concluida, setConcluida] = useState(task.concluida);
+  const [saving, setSaving] = useState(false);
 
   return (
     <Modal onClose={onCancel}>
@@ -759,9 +719,7 @@ function EditModal({
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
             {RESPONSAVEIS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </label>
@@ -770,28 +728,17 @@ function EditModal({
           <span className="block mb-1 text-neutral-300">Operação</span>
           <select
             value={operacao}
-            onChange={async (e) => {
-              const v = e.target.value;
-              if (v === "__add__") {
-                const name = prompt("Nome da operação:");
-                if (name) await onAddOperation(name);
-              } else {
-                setOperacao(v);
-              }
-            }}
+            onChange={(e) => setOperacao(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {ops.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
+            {OPS.map((o) => (
+              <option key={o} value={o}>{o}</option>
             ))}
-            <option value="__add__">+ Adicionar nova operação…</option>
           </select>
         </label>
 
         <label className="text-sm">
-          <span className="block mb-1 text-neutral-300">Recorrência (apenas informativa nesta ocorrência)</span>
+          <span className="block mb-1 text-neutral-300">Recorrência (informativo)</span>
           <input
             disabled
             value={
@@ -832,29 +779,46 @@ function EditModal({
       </label>
 
       <div className="flex flex-wrap justify-between gap-2 mt-4">
-        <button onClick={onDelete} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500">
-          Excluir esta
-        </button>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">
+          <button type="button" onClick={onDelete} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500">
+            Excluir esta
+          </button>
+          {onDeleteSeries && (
+            <button
+              type="button"
+              onClick={onDeleteSeries}
+              className="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600"
+              title="Remove todas as ocorrências desta série recorrente"
+            >
+              Excluir todos os dias
+            </button>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">
             Cancelar
           </button>
           <button
+            type="button"
+            disabled={saving}
             onClick={async () => {
               if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) {
                 alert("Verifique os horários.");
                 return;
               }
+              setSaving(true);
               await onSubmit({
-                titulo: titulo.trim() || "Demanda",
+                titulo: (titulo || "").trim() || "Demanda",
                 inicio,
                 fim,
                 responsavel,
                 operacao,
                 concluida,
               });
+              setSaving(false);
             }}
-            className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
+            className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium disabled:opacity-60"
           >
             Salvar
           </button>
@@ -870,6 +834,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-xl shadow-xl">
         <button
+          type="button"
           className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-200"
           onClick={onClose}
           aria-label="Fechar"
