@@ -14,7 +14,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore"
-import { db, tasksCollection } from "../lib/firebase"
+import { db, tasksCollection } from "@/lib/firebase"
 
 /* ===========================
    Tipos
@@ -113,7 +113,6 @@ function dateToYMD(d: Date) {
 =========================== */
 
 export default function App() {
-  // workspace via ?ws=
   const [ws, setWs] = useState("demo")
 
   useEffect(() => {
@@ -183,7 +182,6 @@ export default function App() {
           })
         })
 
-        // Load recurring tasks (daily and weekly)
         try {
           const recurringQuery = query(
             collectionGroup(db, "tasks"),
@@ -252,7 +250,7 @@ export default function App() {
             }
           })
         } catch (error) {
-          console.error("[v0] Error loading recurring tasks:", error)
+          console.error("Error loading recurring tasks:", error)
         }
 
         setTasks(list)
