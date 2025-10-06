@@ -10,44 +10,96 @@ import {
   query,
   getDoc,
   setDoc,
-  updateDoc as updateDocRaw,
+  getDocs,
+  writeBatch,
+  where,
   arrayUnion,
 } from "firebase/firestore";
-import { db, tasksCollection, workspaceSettingsRef } from "./lib/firebase";
+import {
+  db,
+  tasksCollection,
+  dayDoc,
+  settingsDoc,
+  tasksCollectionGroup,
+} from "./lib/firebase";
+import { useWorkspaceId } from "./hooks/useWorkspace";
 
-/* =========================================================
- * Helpers de tempo / timeline
- * =======================================================*/
+/* ===========================
+   Tipos
+=========================== */
+
+type Recurrence =
+  | { kind: "once" }
+  | { kind: "daily" }
+  | { kind: "weekly"; weekday: number };
 
 type Task = {
-  id?: string;
+  id: string;
   titulo: string;
   inicio: string; // "HH:MM"
   fim: string;    // "HH:MM"
+  concluida: boolean;
   responsavel: string;
   operacao: string;
-  concluida: boolean;
-  createdAt?: number;
+  ymd: string; // dia da ocorrência
+  seriesId?: string; // para excluir toda série
+  recKind: "once" | "daily" | "weekly";
+  workspaceId: string;
+  createdAt: number;
 };
 
-function hhmmToMin(hhmm: string) {
+type NewTaskPayload = {
+  titulo: string;
+  inicio: string;
+  fim: string;
+  concluida: boolean;
+  responsavel: string;
+  operacao: string;
+};
+
+type Timeline = {
+  startMin: number;
+  endMin: number;
+  totalMin: number;
+};
+
+/* ===========================
+   Utilitários
+=========================== */
+
+function hhmmToMin(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
-function clamp(n: number, a: number, b: number) {
-  return Math.max(a, Math.min(b, n));
+function fmtHM(hhmm: string) {
+  return hhmm;
 }
-function dateFromYMD(ymd: string, h = 0, m = 0) {
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+function buildTimeline(start: string, end: string): Timeline {
+  const startMin = hhmmToMin(start);
+  const endMin = hhmmToMin(end);
+  return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) };
+}
+function percentFromTime(hhmm: string, tl: Timeline): number {
+  const pos = hhmmToMin(hhmm) - tl.startMin;
+  return clamp((pos / tl.totalMin) * 100, 0, 100);
+}
+function ymdToDate(ymd: string) {
   const [Y, M, D] = ymd.split("-").map(Number);
-  return new Date(Y, (M || 1) - 1, D || 1, h, m);
+  return new Date(Y, (M || 1) - 1, D || 1, 0, 0, 0, 0);
 }
-function minToPct(min: number, start: number, total: number) {
-  return clamp(((min - start) / total) * 100, 0, 100);
+function dateToYMD(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-/* =========================================================
- * Constantes
- * =======================================================*/
+/* ===========================
+   Dados fixos / defaults
+=========================== */
 
 const RESPONSAVEIS = [
   "Bárbara Arruda",
@@ -55,275 +107,850 @@ const RESPONSAVEIS = [
   "Luciano Miranda",
   "João Vinicius",
   "Lucas Siqueira",
-];
+] as const;
 
-/* =========================================================
- * App
- * =======================================================*/
+const DEFAULT_OPERATIONS = ["FMU", "COGNA"];
+
+/* ===========================
+   UI Primitivas
+=========================== */
+
+function Modal({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-2xl shadow-xl">
+        <button
+          className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-200"
+          onClick={onClose}
+          aria-label="Fechar"
+        >
+          ✕
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ===========================
+   Timeline (grade + now/lanes)
+=========================== */
+
+function HourScaleVertical({ timeline }: { timeline: Timeline }) {
+  // ticks de 30 em 30 com espaçamento maior (100px por hora)
+  const ticks: string[] = [];
+  for (let m = timeline.startMin; m <= timeline.endMin; m += 30) {
+    const h = Math.floor(m / 60).toString().padStart(2, "0");
+    const min = (m % 60).toString().padStart(2, "0");
+    ticks.push(`${h}:${min}`);
+  }
+  return (
+    <div className="relative select-none">
+      <div className="h-[1200px] flex flex-col justify-between text-xs text-neutral-400 pr-2">
+        {ticks.map((t) => (
+          <div key={t} className="relative flex items-center">
+            <div
+              className={`absolute -left-2 top-1/2 -translate-y-1/2 h-px ${
+                t.endsWith(":00") ? "w-8 bg-neutral-600" : "w-6 bg-neutral-700"
+              }`}
+            />
+            <span>{t}</span>
+            <div
+              className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 w-full h-px ${
+                t.endsWith(":00") ? "bg-neutral-700" : "bg-neutral-800/50"
+              }`}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TaskStackVertical({
+  tasks,
+  timeline,
+  onClickTask,
+}: {
+  tasks: Task[];
+  timeline: Timeline;
+  onClickTask: (t: Task) => void;
+}) {
+  const gap = 10;
+
+  type Enriched = Task & { startMin: number; endMin: number; idx: number };
+  const enriched: Enriched[] = tasks.map((t, idx) => ({
+    ...t,
+    startMin: hhmmToMin(t.inicio),
+    endMin: hhmmToMin(t.fim),
+    idx,
+  }));
+
+  const overlap = (a: Enriched, b: Enriched) =>
+    a.startMin < b.endMin && b.startMin < a.endMin;
+
+  const n = enriched.length;
+  const adj: number[][] = Array.from({ length: n }, () => []);
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (overlap(enriched[i], enriched[j])) {
+        adj[i].push(j);
+        adj[j].push(i);
+      }
+    }
+  }
+
+  const compId: number[] = Array(n).fill(-1);
+  let compCount = 0;
+  for (let i = 0; i < n; i++) {
+    if (compId[i] !== -1) continue;
+    const q = [i];
+    compId[i] = compCount;
+    while (q.length) {
+      const u = q.shift()!;
+      for (const v of adj[u]) {
+        if (compId[v] === -1) {
+          compId[v] = compCount;
+          q.push(v);
+        }
+      }
+    }
+    compCount++;
+  }
+
+  type LaneInfo = { lane: number; lanesInComp: number };
+  const laneInfo: Record<number, LaneInfo> = {};
+  for (let c = 0; c < compCount; c++) {
+    const nodes = enriched
+      .filter((_, i) => compId[i] === c)
+      .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+    const lanesEnd: number[] = [];
+    for (const t of nodes) {
+      let placedLane = -1;
+      for (let li = 0; li < lanesEnd.length; li++) {
+        if (lanesEnd[li] <= t.startMin) {
+          placedLane = li;
+          break;
+        }
+      }
+      if (placedLane === -1) {
+        lanesEnd.push(t.endMin);
+        placedLane = lanesEnd.length - 1;
+      } else {
+        lanesEnd[placedLane] = t.endMin;
+      }
+      laneInfo[t.idx] = { lane: placedLane, lanesInComp: lanesEnd.length };
+    }
+  }
+
+  return (
+    <div className="absolute inset-0">
+      {enriched.map((t) => {
+        const top = percentFromTime(t.inicio, timeline);
+        const bottom = percentFromTime(t.fim, timeline);
+        const height = Math.max(1, bottom - top);
+
+        let bg = "bg-sky-500";
+        let badge = "NO PRAZO";
+        const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
+        if (t.concluida) {
+          bg = "bg-emerald-500";
+          badge = "CONCLUÍDA";
+        } else if (nowMin >= t.endMin) {
+          bg = "bg-red-500";
+          badge = "ATRASADA";
+        }
+
+        const info = laneInfo[t.idx] ?? { lane: 0, lanesInComp: 1 };
+        const left = `calc(${(info.lane / info.lanesInComp) * 100}% + ${
+          info.lane * gap
+        }px)`;
+        const width = `calc(${100 / info.lanesInComp}% - ${
+          ((info.lanesInComp - 1) / info.lanesInComp) * gap
+        }px)`;
+
+        return (
+          <div
+            key={t.id}
+            className="absolute rounded-xl shadow-lg overflow-hidden cursor-pointer"
+            style={{ top: `${top}%`, height: `${height}%`, left, width }}
+            onClick={() => onClickTask(t)}
+            title={`${t.titulo} — ${t.inicio}–${t.fim}`}
+          >
+            <div
+              className={`w-full h-full ${bg} flex items-center justify-between px-3`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-wide bg-black/20 px-2 py-0.5 rounded-full">
+                  {badge}
+                </span>
+                <span className="font-semibold text-sm md:text-base line-clamp-1">
+                  {t.operacao} — {t.titulo}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs md:text-sm bg-black/25 px-2 py-0.5 rounded-full">
+                  {t.responsavel}
+                </span>
+                <div className="text-xs md:text-sm opacity-90">
+                  {fmtHM(t.inicio)} – {fmtHM(t.fim)}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ===========================
+   Modais: Novo e Editar
+=========================== */
+
+function SelectOperacao({
+  value,
+  setValue,
+  operations,
+  onAddOperation,
+  label = "Operação",
+}: {
+  value: string;
+  setValue: (v: string) => void;
+  operations: string[];
+  onAddOperation: (name: string) => Promise<void>;
+  label?: string;
+}) {
+  const ADD_VALUE = "__ADD__";
+  return (
+    <label className="text-sm block">
+      <span className="block mb-1 text-neutral-300">{label}</span>
+      <select
+        value={value}
+        onChange={async (e) => {
+          if (e.target.value === ADD_VALUE) {
+            const name = window.prompt("Nome da operação:")?.trim();
+            if (!name) return;
+            await onAddOperation(name);
+            setValue(name);
+          } else {
+            setValue(e.target.value);
+          }
+        }}
+        className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+      >
+        {operations.map((op) => (
+          <option key={op} value={op}>
+            {op}
+          </option>
+        ))}
+        <option value={ADD_VALUE}>+ Adicionar nova operação…</option>
+      </select>
+    </label>
+  );
+}
+
+function NewTaskModal({
+  ymd,
+  ws,
+  operations,
+  onAddOperation,
+  onClose,
+  onCreated,
+}: {
+  ymd: string;
+  ws: string;
+  operations: string[];
+  onAddOperation: (name: string) => Promise<void>;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [titulo, setTitulo] = useState("");
+  const [inicio, setInicio] = useState("08:00");
+  const [fim, setFim] = useState("09:00");
+  const [responsavel, setResponsavel] = useState<string>(RESPONSAVEIS[0]);
+  const [operacao, setOperacao] = useState<string>(operations[0] || "FMU");
+  const [recurrence, setRecurrence] = useState<"once" | "daily" | "weekly">(
+    "once"
+  );
+
+  async function createOccurrences(
+    base: NewTaskPayload,
+    rec: Recurrence,
+    startYmd: string
+  ) {
+    const batch = writeBatch(db);
+    const seriesId =
+      rec.kind === "once" ? undefined : crypto.randomUUID().toString();
+
+    const startDate = ymdToDate(startYmd);
+    const maxDays = 60;
+    for (let i = 0; i < maxDays; i++) {
+      const d = new Date(startDate.getTime());
+      d.setDate(d.getDate() + i);
+      const ymd = dateToYMD(d);
+
+      if (rec.kind === "daily") {
+        // inclui todos os dias
+      } else if (rec.kind === "weekly") {
+        if (d.getDay() !== rec.weekday) continue;
+      } else if (rec.kind === "once") {
+        if (i > 0) break; // só o primeiro dia
+      }
+
+      const ref = doc(tasksCollection(ws, ymd));
+      batch.set(ref, {
+        ...base,
+        ymd,
+        recKind: rec.kind,
+        seriesId,
+        workspaceId: ws,
+        createdAt: Date.now(),
+      });
+    }
+
+    await batch.commit();
+  }
+
+  async function handleSave() {
+    if (hhmmToMin(fim) <= hhmmToMin(inicio)) {
+      alert("Hora fim deve ser maior que a hora início.");
+      return;
+    }
+
+    const base: NewTaskPayload = {
+      titulo: titulo.trim() || "Nova demanda",
+      inicio,
+      fim,
+      concluida: false,
+      responsavel,
+      operacao,
+    };
+
+    const rec: Recurrence =
+      recurrence === "once"
+        ? { kind: "once" }
+        : recurrence === "daily"
+        ? { kind: "daily" }
+        : { kind: "weekly", weekday: ymdToDate(ymd).getDay() };
+
+    await createOccurrences(base, rec, ymd);
+    onCreated();
+    onClose();
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <h3 className="text-lg font-semibold mb-4">Nova demanda</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Nome da demanda</span>
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+            placeholder="Ex.: Enviar funil diário"
+          />
+        </label>
+
+        <SelectOperacao
+          value={operacao}
+          setValue={setOperacao}
+          operations={operations}
+          onAddOperation={onAddOperation}
+        />
+
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Recorrência</span>
+          <select
+            value={recurrence}
+            onChange={(e) => setRecurrence(e.target.value as any)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          >
+            <option value="once">Apenas este dia ({ymd})</option>
+            <option value="daily">Todos os dias</option>
+            <option value="weekly">Uma vez por semana</option>
+          </select>
+        </label>
+
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Responsável</span>
+          <select
+            value={responsavel}
+            onChange={(e) => setResponsavel(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          >
+            {RESPONSAVEIS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Hora início</span>
+          <input
+            type="time"
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
+        </label>
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Hora fim</span>
+          <input
+            type="time"
+            value={fim}
+            onChange={(e) => setFim(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
+        </label>
+      </div>
+
+      <div className="flex justify-end gap-2 mt-4">
+        <button
+          onClick={onClose}
+          className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleSave}
+          className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
+        >
+          Salvar
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function EditTaskModal({
+  task,
+  operations,
+  onAddOperation,
+  onClose,
+}: {
+  task: Task;
+  operations: string[];
+  onAddOperation: (name: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [titulo, setTitulo] = useState(task.titulo);
+  const [inicio, setInicio] = useState(task.inicio);
+  const [fim, setFim] = useState(task.fim);
+  const [responsavel, setResponsavel] = useState(task.responsavel);
+  const [operacao, setOperacao] = useState(task.operacao);
+  const [concluida, setConcluida] = useState(task.concluida);
+
+  async function handleSave() {
+    if (hhmmToMin(fim) <= hhmmToMin(inicio)) {
+      alert("Hora fim deve ser maior que a hora início.");
+      return;
+    }
+    await updateDoc(doc(tasksCollection(task.workspaceId, task.ymd), task.id), {
+      titulo: titulo.trim() || "Demanda",
+      inicio,
+      fim,
+      responsavel,
+      operacao,
+      concluida,
+    });
+    onClose();
+  }
+
+  async function deleteThis() {
+    if (!confirm("Excluir somente esta ocorrência?")) return;
+    await deleteDoc(doc(tasksCollection(task.workspaceId, task.ymd), task.id));
+    onClose();
+  }
+
+  async function deleteAll() {
+    if (!task.seriesId || task.recKind === "once") return;
+    if (!confirm("Excluir TODAS as ocorrências desta série?")) return;
+    const q = query(
+      tasksCollectionGroup(),
+      where("workspaceId", "==", task.workspaceId),
+      where("seriesId", "==", task.seriesId)
+    );
+    const snap = await getDocs(q);
+    const batch = writeBatch(db);
+    snap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    onClose();
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <h3 className="text-lg font-semibold mb-4">Editar demanda</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Nome da demanda</span>
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
+        </label>
+
+        <SelectOperacao
+          value={operacao}
+          setValue={setOperacao}
+          operations={operations}
+          onAddOperation={onAddOperation}
+        />
+
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Responsável</span>
+          <select
+            value={responsavel}
+            onChange={(e) => setResponsavel(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          >
+            {RESPONSAVEIS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">
+            Recorrência (apenas informativa para esta ocorrência)
+          </span>
+          <input
+            value={
+              task.recKind === "once"
+                ? `apenas ${task.ymd}`
+                : task.recKind === "daily"
+                ? "diária"
+                : "semanal"
+            }
+            readOnly
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-neutral-400"
+          />
+        </label>
+
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Hora início</span>
+          <input
+            type="time"
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
+        </label>
+        <label className="text-sm">
+          <span className="block mb-1 text-neutral-300">Hora fim</span>
+          <input
+            type="time"
+            value={fim}
+            onChange={(e) => setFim(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
+        </label>
+      </div>
+
+      <div className="mt-2">
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={concluida}
+            onChange={(e) => setConcluida(e.target.checked)}
+          />
+          Concluída
+        </label>
+      </div>
+
+      <div className="flex flex-wrap justify-between gap-2 mt-4">
+        <div className="flex gap-2">
+          <button
+            onClick={deleteThis}
+            className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500"
+          >
+            Excluir esta
+          </button>
+          {task.seriesId && task.recKind !== "once" && (
+            <button
+              onClick={deleteAll}
+              className="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600"
+            >
+              Excluir toda a série
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ===========================
+   App
+=========================== */
 
 export default function App() {
-  // Workspace pela URL (?ws=…)
-  const params = new URLSearchParams(location.search);
-  const wsId = params.get("ws") || "demo";
+  const ws = useWorkspaceId();
 
-  // Data selecionada
+  const [now, setNow] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().slice(0, 10)
   );
-  const [now, setNow] = useState(new Date());
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [operations, setOperations] = useState<string[]>(DEFAULT_OPERATIONS);
+  const [showNew, setShowNew] = useState(false);
+  const [selected, setSelected] = useState<Task | null>(null);
 
   // Filtros
-  const [fResp, setFResp] = useState<string>("__ALL__");
-  const [fOp, setFOp] = useState<string>("__ALL__");
+  const [filterResp, setFilterResp] = useState<string>("__ALL__");
+  const [filterOp, setFilterOp] = useState<string>("__ALL__");
 
-  // Operações (persistentes por workspace)
-  const [operations, setOperations] = useState<string[]>(["FMU", "COGNA"]);
-
-  // Tasks (snapshot do Firestore)
-  const [tasks, setTasks] = useState<Task[]>([]);
-
-  // Atualiza relógio (linha do "agora")
+  // Relógio
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 10000);
+    const t = setInterval(() => setNow(new Date()), 15000);
     return () => clearInterval(t);
   }, []);
 
-  // Carregar operações persistidas do workspace
+  // Carrega/escuta tarefas do dia
   useEffect(() => {
-    let live = true;
-    async function loadOps() {
-      try {
-        const ref = workspaceSettingsRef(wsId);
-        const snap = await getDoc(ref);
-        const ops = snap.exists() ? (snap.data().operations as string[] | undefined) : undefined;
-        if (live) {
-          setOperations(ops && ops.length ? ops : ["FMU", "COGNA"]);
-        }
-      } catch (e) {
-        console.error("Erro lendo operações:", e);
-        if (live) setOperations(["FMU", "COGNA"]);
-      }
-    }
-    loadOps();
-    return () => { live = false; };
-  }, [wsId]);
-
-  // Assinar tasks do dia
-  useEffect(() => {
-    const col = tasksCollection(wsId, selectedDate);
-    const qy = query(col, orderBy("createdAt", "asc"));
-    const unsub = onSnapshot(qy, (snap) => {
-      const arr: Task[] = [];
+    const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"));
+    return onSnapshot(qy, (snap) => {
+      const list: Task[] = [];
       snap.forEach((d) => {
-        const data = d.data() as Task;
-        arr.push({ ...data, id: d.id });
+        const data = d.data() as any;
+        list.push({
+          id: d.id,
+          titulo: data.titulo,
+          inicio: data.inicio,
+          fim: data.fim,
+          concluida: data.concluida,
+          responsavel: data.responsavel,
+          operacao: data.operacao,
+          ymd: data.ymd,
+          seriesId: data.seriesId,
+          recKind: data.recKind,
+          workspaceId: data.workspaceId,
+          createdAt: data.createdAt,
+        });
       });
-      setTasks(arr);
+      setTasks(list);
     });
-    return () => unsub();
-  }, [wsId, selectedDate]);
+  }, [ws, selectedDate]);
 
-  // Timeline
-  const dayStart = "08:00";
-  const dayEnd = "20:00";
-  const startMin = hhmmToMin(dayStart);
-  const endMin = hhmmToMin(dayEnd);
-  const total = Math.max(1, endMin - startMin);
+  // Carrega configurações (operações)
+  useEffect(() => {
+    const unsub = onSnapshot(settingsDoc(ws), async (snap) => {
+      if (!snap.exists()) {
+        await setDoc(settingsDoc(ws), {
+          operations: DEFAULT_OPERATIONS,
+        });
+        setOperations(DEFAULT_OPERATIONS);
+      } else {
+        const ops = (snap.data().operations || []) as string[];
+        setOperations(ops.length ? ops : DEFAULT_OPERATIONS);
+      }
+    });
+    return unsub;
+  }, [ws]);
 
-  // Filtro aplicado
+  // Adiciona nova operação (persiste em meta/settings)
+  async function addOperation(name: string) {
+    const sRef = settingsDoc(ws);
+    await updateDoc(sRef, {
+      operations: arrayUnion(name),
+    }).catch(async (e) => {
+      if (e.code === "not-found" || /No document to update/.test(String(e))) {
+        await setDoc(sRef, { operations: arrayUnion(name) }, { merge: true });
+      } else {
+        throw e;
+      }
+    });
+  }
+
+  // Estatísticas com filtros
   const visibleTasks = useMemo(() => {
     return tasks.filter((t) => {
-      if (fResp !== "__ALL__" && t.responsavel !== fResp) return false;
-      if (fOp !== "__ALL__" && t.operacao !== fOp) return false;
+      if (filterResp !== "__ALL__" && t.responsavel !== filterResp) return false;
+      if (filterOp !== "__ALL__" && t.operacao !== filterOp) return false;
       return true;
     });
-  }, [tasks, fResp, fOp]);
+  }, [tasks, filterResp, filterOp]);
 
-  // Estatísticas
   const stats = useMemo(() => {
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    let concl = 0, atr = 0, nop = 0;
+    let concluida = 0,
+      atrasada = 0,
+      noPrazo = 0;
     for (const t of visibleTasks) {
-      const end = hhmmToMin(t.fim);
-      if (t.concluida) concl++;
-      else if (end <= nowMin) atr++;
-      else nop++;
+      if (t.concluida) concluida++;
+      else if (hhmmToMin(t.fim) <= nowMin) atrasada++;
+      else noPrazo++;
     }
-    return { total: visibleTasks.length, concl, atr, nop };
+    return { total: visibleTasks.length, concluida, atrasada, noPrazo };
   }, [visibleTasks, now]);
 
-  // Salvar nova operação (persistente)
-  async function addNewOperationFlow(): Promise<string | null> {
-    const name = (prompt("Nome da operação:") || "").trim();
-    if (!name) return null;
-    const lower = operations.map((o) => o.toLowerCase());
-    if (lower.includes(name.toLowerCase())) return name;
+  // timeline
+  const timeline = useMemo(() => buildTimeline("08:00", "20:00"), []);
 
-    try {
-      const ref = workspaceSettingsRef(wsId);
-      // garante que o doc exista
-      await setDoc(ref, { operations: [] }, { merge: true });
-      // adiciona sem duplicar
-      await updateDocRaw(ref, { operations: arrayUnion(name) });
-      setOperations((prev) => [...prev, name]);
-      return name;
-    } catch (e) {
-      console.error("Erro salvando nova operação:", e);
-      alert("Não consegui salvar a nova operação no Firestore.");
-      return null;
-    }
-  }
-
-  // Criar / Atualizar / Excluir tarefa
-  async function createTask(data: Omit<Task, "id">) {
-    const col = tasksCollection(wsId, selectedDate);
-    await addDoc(col, { ...data, createdAt: Date.now() });
-  }
-  async function saveTask(id: string, patch: Partial<Task>) {
-    const ref = doc(tasksCollection(wsId, selectedDate), id);
-    await updateDoc(ref, patch as any);
-  }
-  async function deleteTask(id: string) {
-    const ref = doc(tasksCollection(wsId, selectedDate), id);
-    await deleteDoc(ref);
-  }
-
-  // Navegação dia
+  // Navegação de data
   function shiftDate(days: number) {
-    const d = dateFromYMD(selectedDate);
+    const d = ymdToDate(selectedDate);
     d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().slice(0, 10));
+    setSelectedDate(dateToYMD(d));
   }
-
-  /* ===========================
-   * UI
-   * =========================*/
-
-  const [showNew, setShowNew] = useState(false);
-  const [edit, setEdit] = useState<Task | null>(null);
 
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 p-6">
-      <div className="max-w-6xl mx-auto space-y-4">
-        <header className="flex flex-wrap gap-3 items-center justify-between">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-3xl font-semibold">Esteira de Demandas</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-neutral-300">
-              Janela do dia: <b>{dayStart}</b>–<b>{dayEnd}</b>. Agora:{" "}
-              {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              {"  "} | Workspace:
+          <span className="text-sm text-neutral-300">
+            Janela do dia: <b>08:00–20:00</b>. Agora:{" "}
+            {now.toTimeString().slice(0, 5)} | Workspace:{" "}
+            <span className="bg-neutral-800 px-2 py-0.5 rounded">
+              {ws}
             </span>
-            <span className="px-2 py-1 rounded bg-neutral-800">{wsId}</span>
-          </div>
-        </header>
-
-        {/* Barra de data + ações */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => shiftDate(-1)} className="px-2.5 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700">◀︎</button>
-          <input
-            type="date"
-            className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
-          <button onClick={() => shiftDate(1)} className="px-2.5 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700">▶︎</button>
-
-          <div className="flex-1" />
-
-          {/* Filtro por Responsável */}
-          <select
-            value={fResp}
-            onChange={(e) => setFResp(e.target.value)}
-            className="bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5"
-          >
-            <option value="__ALL__">Filtrar por responsável (todos)</option>
-            {RESPONSAVEIS.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-
-          {/* Filtro por Operação */}
-          <select
-            value={fOp}
-            onChange={(e) => setFOp(e.target.value)}
-            className="bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5"
-          >
-            <option value="__ALL__">Filtrar por operação (todas)</option>
-            {operations.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
-
-          <button
-            onClick={() => setShowNew(true)}
-            className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 font-medium"
-          >
-            + Nova demanda
-          </button>
+          </span>
         </div>
 
-        {/* Cards de estatística */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard label="Demandas no dia" value={stats.total} accent="slate" />
-          <StatCard label="Concluídas" value={stats.concl} accent="emerald" />
-          <StatCard label="Atrasadas" value={stats.atr} accent="red" />
-          <StatCard label="No prazo" value={stats.nop} accent="sky" />
+        {/* Filtros */}
+        <div className="flex flex-wrap gap-3 items-end mb-4">
+          <label className="text-sm">
+            <span className="block mb-1 text-neutral-300">Responsável</span>
+            <select
+              value={filterResp}
+              onChange={(e) => setFilterResp(e.target.value)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+            >
+              <option value="__ALL__">Todos</option>
+              {RESPONSAVEIS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-sm">
+            <span className="block mb-1 text-neutral-300">Operação</span>
+            <select
+              value={filterOp}
+              onChange={(e) => setFilterOp(e.target.value)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+            >
+              <option value="__ALL__">Todas</option>
+              {operations.map((op) => (
+                <option key={op} value={op}>
+                  {op}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => shiftDate(-1)}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm"
+              title="Dia anterior"
+            >
+              ◀︎
+            </button>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5 text-sm"
+            />
+            <button
+              onClick={() => shiftDate(1)}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm"
+              title="Próximo dia"
+            >
+              ▶︎
+            </button>
+
+            <button
+              onClick={() => setShowNew(true)}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-medium"
+            >
+              + Nova demanda
+            </button>
+          </div>
+        </div>
+
+        {/* Cards topo */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <CardStat label="Demandas no dia" value={stats.total} accent="slate" />
+          <CardStat label="Concluídas" value={stats.concluida} accent="emerald" />
+          <CardStat label="Atrasadas" value={stats.atrasada} accent="red" />
+          <CardStat label="No prazo" value={stats.noPrazo} accent="sky" />
         </div>
 
         {/* Timeline */}
-        <div className="relative bg-neutral-900 rounded-2xl p-4 shadow-xl grid grid-cols-[100px_1fr] gap-4">
-          <HourScale startMin={startMin} endMin={endMin} />
-          <div className="relative h-[720px]">
-            <NowLine now={now} startMin={startMin} total={total} />
-            <TaskStack
+        <div className="relative bg-neutral-900 rounded-2xl p-4 shadow-xl grid grid-cols-[80px_1fr] gap-4">
+          <HourScaleVertical timeline={timeline} />
+          <div className="relative h-[1200px]">
+            <TaskStackVertical
               tasks={visibleTasks}
-              startMin={startMin}
-              total={total}
-              onClick={(t) => setEdit(t)}
+              timeline={timeline}
+              onClickTask={(t) => setSelected(t)}
             />
           </div>
         </div>
       </div>
 
       {showNew && (
-        <TaskModal
-          title="Nova demanda"
+        <NewTaskModal
+          ymd={selectedDate}
+          ws={ws}
           operations={operations}
-          onAddOperation={addNewOperationFlow}
+          onAddOperation={addOperation}
           onClose={() => setShowNew(false)}
-          onSave={async (payload) => {
-            await createTask(payload);
-            setShowNew(false);
-          }}
+          onCreated={() => {}}
         />
       )}
 
-      {edit && (
-        <TaskModal
-          title="Editar demanda"
-          initial={edit}
+      {selected && (
+        <EditTaskModal
+          task={selected}
           operations={operations}
-          onAddOperation={addNewOperationFlow}
-          onClose={() => setEdit(null)}
-          onDelete={async () => {
-            if (edit?.id) await deleteTask(edit.id);
-            setEdit(null);
-          }}
-          onSave={async (payload) => {
-            if (edit?.id) await saveTask(edit.id, payload);
-            setEdit(null);
-          }}
+          onAddOperation={addOperation}
+          onClose={() => setSelected(null)}
         />
       )}
     </div>
   );
 }
 
-/* =========================================================
- * Componentes de UI auxiliares
- * =======================================================*/
+/* ===========================
+   Componentes auxiliares
+=========================== */
 
-function StatCard({
+function CardStat({
   label,
   value,
   accent,
@@ -340,7 +967,6 @@ function StatCard({
       : accent === "sky"
       ? "bg-sky-500"
       : "bg-slate-400";
-
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-lg relative overflow-hidden">
       <div className={`absolute inset-y-0 left-0 w-1.5 ${bar}`} />
@@ -349,336 +975,6 @@ function StatCard({
         <span>{label}</span>
       </div>
       <div className="mt-2 text-3xl font-semibold">{value}</div>
-    </div>
-  );
-}
-
-function HourScale({ startMin, endMin }: { startMin: number; endMin: number }) {
-  const ticks: string[] = [];
-  for (let m = startMin; m <= endMin; m += 30) {
-    const h = Math.floor(m / 60).toString().padStart(2, "0");
-    const mm = (m % 60).toString().padStart(2, "0");
-    ticks.push(`${h}:${mm}`);
-  }
-  return (
-    <div className="relative select-none">
-      <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-px bg-neutral-800" />
-      <div className="h-[720px] flex flex-col justify-between text-xs text-neutral-400 pr-2">
-        {ticks.map((t) => (
-          <div key={t} className="relative flex items-center">
-            <div
-              className={`absolute -left-4 top-1/2 -translate-y-1/2 h-px ${
-                t.endsWith(":00") ? "w-10 bg-neutral-600" : "w-8 bg-neutral-700"
-              }`}
-            />
-            <span>{t}</span>
-            <div
-              className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 w-full h-px ${
-                t.endsWith(":00") ? "bg-neutral-700" : "bg-neutral-800/50"
-              }`}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function NowLine({ now, startMin, total }: { now: Date; startMin: number; total: number }) {
-  const pos = now.getHours() * 60 + now.getMinutes();
-  const top = clamp(((pos - startMin) / total) * 100, 0, 100);
-  return (
-    <div
-      className="absolute left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
-      style={{ top: `${top}%` }}
-    >
-      <span className="absolute -top-3 left-2 text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-semibold shadow">
-        {now.toLocaleString([], {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </span>
-    </div>
-  );
-}
-
-/**
- * Distribui tarefas em "lanes" para que, se houver sobreposição,
- * elas fiquem lado a lado (não uma em cima da outra).
- */
-function TaskStack({
-  tasks,
-  startMin,
-  total,
-  onClick,
-}: {
-  tasks: Task[];
-  startMin: number;
-  total: number;
-  onClick: (t: Task) => void;
-}) {
-  const gap = 10;
-
-  type T = Task & { idx: number; s: number; e: number };
-  const arr: T[] = tasks.map((t, idx) => ({
-    ...t,
-    idx,
-    s: hhmmToMin(t.inicio),
-    e: hhmmToMin(t.fim),
-  }));
-
-  // Grafo de sobreposição
-  const n = arr.length;
-  const adj: number[][] = Array.from({ length: n }, () => []);
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const ov = arr[i].s < arr[j].e && arr[j].s < arr[i].e;
-      if (ov) {
-        adj[i].push(j);
-        adj[j].push(i);
-      }
-    }
-  }
-
-  // Componentes conectados -> alocar lanes por componente
-  const comp = Array(n).fill(-1);
-  let cc = 0;
-  for (let i = 0; i < n; i++) {
-    if (comp[i] !== -1) continue;
-    const q = [i];
-    comp[i] = cc;
-    while (q.length) {
-      const u = q.shift()!;
-      for (const v of adj[u]) if (comp[v] === -1) {
-        comp[v] = cc;
-        q.push(v);
-      }
-    }
-    cc++;
-  }
-
-  const laneInfo: Record<number, { lane: number; lanes: number }> = {};
-  for (let c = 0; c < cc; c++) {
-    const group = arr
-      .filter((_, i) => comp[i] === c)
-      .sort((a, b) => a.s - b.s || a.e - b.e);
-
-    const ends: number[] = [];
-    for (const t of group) {
-      let lane = -1;
-      for (let li = 0; li < ends.length; li++) {
-        if (ends[li] <= t.s) { lane = li; break; }
-      }
-      if (lane === -1) {
-        ends.push(t.e);
-        lane = ends.length - 1;
-      } else {
-        ends[lane] = t.e;
-      }
-      laneInfo[t.idx] = { lane, lanes: ends.length };
-    }
-  }
-
-  return (
-    <div className="absolute inset-0">
-      {arr.map((t) => {
-        const top = minToPct(t.s, startMin, total);
-        const bottom = minToPct(t.e, startMin, total);
-        const height = Math.max(1, bottom - top);
-
-        let bg = "bg-sky-500 text-neutral-900";
-        let badge = "NO PRAZO";
-        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-        if (t.concluida) { bg = "bg-emerald-500"; badge = "CONCLUÍDA"; }
-        else if (t.e <= nowMin) { bg = "bg-red-500"; badge = "ATRASADA"; }
-
-        const info = laneInfo[t.idx] ?? { lane: 0, lanes: 1 };
-        const left = `calc(${(info.lane / info.lanes) * 100}% + ${info.lane * gap}px)`;
-        const width = `calc(${100 / info.lanes}% - ${((info.lanes - 1) / info.lanes) * gap}px)`;
-
-        return (
-          <div
-            key={t.id || t.titulo + t.inicio}
-            className="absolute rounded-xl shadow-lg overflow-hidden cursor-pointer"
-            style={{ top: `${top}%`, height: `${height}%`, left, width }}
-            title={`${t.titulo} — ${t.inicio}–${t.fim}`}
-            onClick={() => onClick(t)}
-          >
-            <div className={`w-full h-full ${bg} flex items-center justify-between px-3`}>
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wide bg-black/20 px-2 py-0.5 rounded-full">{badge}</span>
-                <span className="font-medium text-sm md:text-base line-clamp-2">{t.titulo}</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-black/25">{t.responsavel}</span>
-              </div>
-              <div className="text-xs md:text-sm opacity-80">{t.inicio} – {t.fim}</div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* =========================================================
- * Modal de Nova/Editar Demanda
- * =======================================================*/
-
-function TaskModal({
-  title,
-  initial,
-  operations,
-  onAddOperation,
-  onClose,
-  onSave,
-  onDelete,
-}: {
-  title: string;
-  initial?: Task | null;
-  operations: string[];
-  onAddOperation: () => Promise<string | null>;
-  onClose: () => void;
-  onSave: (payload: Omit<Task, "id">) => Promise<void>;
-  onDelete?: () => Promise<void>;
-}) {
-  const [titulo, setTitulo] = useState(initial?.titulo ?? "");
-  const [responsavel, setResponsavel] = useState(initial?.responsavel ?? RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(initial?.operacao ?? operations[0] ?? "");
-  const [inicio, setInicio] = useState(initial?.inicio ?? "08:00");
-  const [fim, setFim] = useState(initial?.fim ?? "09:00");
-  const [concluida, setConcluida] = useState(Boolean(initial?.concluida));
-
-  async function handleSave() {
-    if (!titulo.trim()) {
-      alert("Informe o nome da demanda.");
-      return;
-    }
-    if (hhmmToMin(fim) <= hhmmToMin(inicio)) {
-      alert("Hora fim deve ser maior que a hora início.");
-      return;
-    }
-    const payload: Omit<Task, "id"> = {
-      titulo: titulo.trim(),
-      responsavel,
-      operacao,
-      inicio,
-      fim,
-      concluida,
-    };
-    await onSave(payload);
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-2xl shadow-xl space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <button className="text-neutral-400 hover:text-neutral-200" onClick={onClose}>✕</button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="text-sm">
-            <span className="block mb-1 text-neutral-300">Nome da demanda</span>
-            <input
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
-              placeholder="Ex.: Enviar funil diário"
-            />
-          </label>
-
-          <label className="text-sm">
-            <span className="block mb-1 text-neutral-300">Responsável</span>
-            <select
-              value={responsavel}
-              onChange={(e) => setResponsavel(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
-            >
-              {RESPONSAVEIS.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm">
-            <span className="block mb-1 text-neutral-300">Operação</span>
-            <select
-              value={operacao}
-              onChange={async (e) => {
-                const v = e.target.value;
-                if (v === "__ADD__") {
-                  const created = await onAddOperation();
-                  if (created) setOperacao(created);
-                } else {
-                  setOperacao(v);
-                }
-              }}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
-            >
-              {operations.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-              <option value="__ADD__">+ Adicionar nova operação…</option>
-            </select>
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm">
-              <span className="block mb-1 text-neutral-300">Hora início</span>
-              <input
-                type="time"
-                value={inicio}
-                onChange={(e) => setInicio(e.target.value)}
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="block mb-1 text-neutral-300">Hora fim</span>
-              <input
-                type="time"
-                value={fim}
-                onChange={(e) => setFim(e.target.value)}
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
-              />
-            </label>
-          </div>
-        </div>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={concluida}
-            onChange={(e) => setConcluida(e.target.checked)}
-          />
-          Concluída
-        </label>
-
-        <div className="flex justify-between">
-          {onDelete ? (
-            <button
-              onClick={onDelete}
-              className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500"
-            >
-              Excluir esta
-            </button>
-          ) : <span />}
-
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">
-              Cancelar
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
-            >
-              Salvar
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
