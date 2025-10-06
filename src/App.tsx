@@ -253,7 +253,27 @@ export default function App() {
       alert(`${snap.docs.length} ocorrência(s) excluída(s) com sucesso!`)
     } catch (error: any) {
       console.error("[v0] Erro ao excluir todas as ocorrências:", error)
-      alert(`Erro ao excluir: ${error?.message || error}\n\nVerifique as regras do Firestore para collectionGroup.`)
+
+      const errorMessage = error?.message || String(error)
+      const linkMatch = errorMessage.match(/(https:\/\/console\.firebase\.google\.com\/[^\s]+)/)
+
+      if (linkMatch && linkMatch[1]) {
+        const indexLink = linkMatch[1]
+        console.log("[v0] Link para criar índice:", indexLink)
+
+        // Mostrar modal com link clicável
+        const shouldOpenLink = confirm(
+          `Esta operação precisa de um índice no Firestore.\n\n` +
+            `Clique em OK para abrir o Firebase Console e criar o índice automaticamente.\n\n` +
+            `Depois de criar o índice (leva 1-2 minutos), tente novamente.`,
+        )
+
+        if (shouldOpenLink) {
+          window.open(indexLink, "_blank")
+        }
+      } else {
+        alert(`Erro ao excluir: ${errorMessage}\n\nVerifique as regras do Firestore para collectionGroup.`)
+      }
     }
   }
 
