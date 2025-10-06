@@ -3,13 +3,13 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   updateDoc,
   collectionGroup,
   where,
-  getDocs,
   writeBatch,
 } from "firebase/firestore";
 import { db, tasksCollection } from "./lib/firebase";
@@ -22,14 +22,14 @@ type RecKind = "once" | "daily" | "weekly";
 type Task = {
   id: string;
   titulo: string;
-  inicio: string; // "HH:MM"
-  fim: string;    // "HH:MM"
+  inicio: string;          // "HH:MM"
+  fim: string;             // "HH:MM"
   concluida: boolean;
   responsavel: string;
   operacao: string;
-  ymd: string;        // "YYYY-MM-DD"
-  seriesId?: string;  // série p/ recorrentes
-  recKind?: RecKind;  // informativo
+  ymd: string;             // "YYYY-MM-DD"
+  seriesId?: string;       // para recorrência
+  recKind?: RecKind;       // apenas informativo na ocorrência
   workspaceId: string;
   createdAt: number;
 };
@@ -37,7 +37,60 @@ type Task = {
 type Timeline = { startMin: number; endMin: number; totalMin: number };
 
 /* ===========================
-   Constantes
+   Utilitários (robustos)
+=========================== */
+
+// uuid com fallback (evita crash quando crypto.randomUUID não existe)
+function uuid() {
+  try {
+    // @ts-ignore
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      // @ts-ignore
+      return crypto.randomUUID();
+    }
+  } catch {}
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// valida "HH:MM"
+function isHHMM(v: any): v is string {
+  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v);
+}
+function hhmmToMin(hhmm: string): number {
+  if (!isHHMM(hhmm)) return 0;
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return 0;
+  return h * 60 + m;
+}
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+function buildTimeline(start: string, end: string): Timeline {
+  const startMin = hhmmToMin(start);
+  const endMin = hhmmToMin(end);
+  return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) };
+}
+function percentFromTime(hhmm: string, tl: Timeline): number {
+  const pos = (isHHMM(hhmm) ? hhmmToMin(hhmm) : tl.startMin) - tl.startMin;
+  return clamp((pos / tl.totalMin) * 100, 0, 100);
+}
+function ymdToDate(ymd: string) {
+  if (typeof ymd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  }
+  const [Y, M, D] = ymd.split("-").map(Number);
+  return new Date(Y, (M || 1) - 1, D || 1, 0, 0, 0, 0);
+}
+function dateToYMD(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/* ===========================
+   Dados base
 =========================== */
 const RESPONSAVEIS = [
   "Bárbara Arruda",
@@ -61,66 +114,25 @@ const OPERACOES = [
 ];
 
 /* ===========================
-   Utils robustos
-=========================== */
-function isHHMM(v: any): v is string {
-  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v);
-}
-function hhmmToMin(hhmm: string): number {
-  if (!isHHMM(hhmm)) return 0;
-  const [h, m] = hhmm.split(":").map(Number);
-  return (Number(h) || 0) * 60 + (Number(m) || 0);
-}
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
-function buildTimeline(start: string, end: string): Timeline {
-  const startMin = hhmmToMin(start);
-  const endMin = hhmmToMin(end);
-  return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) };
-}
-function percentFromTime(hhmm: string, tl: Timeline): number {
-  const pos = (isHHMM(hhmm) ? hhmmToMin(hhmm) : tl.startMin) - tl.startMin;
-  return clamp((pos / tl.totalMin) * 100, 0, 100);
-}
-function ymdToDate(ymd: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return new Date();
-  const [Y, M, D] = ymd.split("-").map(Number);
-  return new Date(Y, (M || 1) - 1, D || 1, 0, 0, 0, 0);
-}
-function dateToYMD(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/* ===========================
    App
 =========================== */
 export default function App() {
-  // workspace da URL (?ws=...)
+  // workspace via ?ws=...
   const params = new URLSearchParams(window.location.search);
   const ws = params.get("ws") || "demo";
 
   const [selectedDate, setSelectedDate] = useState(() => dateToYMD(new Date()));
   const [tasks, setTasks] = useState<Task[]>([]);
-
-  // filtros
   const [filterResp, setFilterResp] = useState<string>("(todos)");
   const [filterOp, setFilterOp] = useState<string>("(todas)");
-
-  // UI
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
 
-  // Timeline base
-  const dayStart = "08:00";
-  const dayEnd = "20:00";
-  const timeline = useMemo(() => buildTimeline(dayStart, dayEnd), []);
+  // timeline (08:00–20:00; slots de 30m; gap maior)
+  const timeline = useMemo(() => buildTimeline("08:00", "20:00"), []);
 
   /* ===========================
-     Snapshot do dia
+     Carrega/escuta tarefas do dia
   =========================== */
   useEffect(() => {
     const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"));
@@ -128,13 +140,15 @@ export default function App() {
       const list: Task[] = [];
       snap.forEach((d) => {
         const data = d.data() as any;
-        const ini = data?.inicio, fim = data?.fim;
-        if (!isHHMM(ini) || !isHHMM(fim)) return; // ignora registros ruins
+        const ini = data?.inicio;
+        const fim = data?.fim;
+        if (!isHHMM(ini) || !isHHMM(fim)) return;
+
         list.push({
           id: d.id,
           titulo: String(data?.titulo ?? "Demanda"),
-          inicio: ini,
-          fim: fim,
+          inicio: String(ini),
+          fim: String(fim),
           concluida: Boolean(data?.concluida),
           responsavel: String(data?.responsavel ?? ""),
           operacao: String(data?.operacao ?? ""),
@@ -150,36 +164,37 @@ export default function App() {
   }, [ws, selectedDate]);
 
   /* ===========================
-     CRUD básico
+     CRUD helpers
   =========================== */
   async function addTask(input: Omit<Task, "id" | "workspaceId" | "createdAt">) {
-    await addDoc(tasksCollection(ws, input.ymd), {
+    return addDoc(tasksCollection(ws, input.ymd), {
       ...input,
       workspaceId: ws,
       createdAt: Date.now(),
     });
   }
   async function updateTask(tid: string, ymd: string, patch: Partial<Task>) {
-    await updateDoc(doc(tasksCollection(ws, ymd), tid), patch as any);
+    return updateDoc(doc(tasksCollection(ws, ymd), tid), patch as any);
   }
-  async function deleteTaskOnce(tid: string, ymd: string) {
-    await deleteDoc(doc(tasksCollection(ws, ymd), tid));
+  async function deleteTask(tid: string, ymd: string) {
+    return deleteDoc(doc(tasksCollection(ws, ymd), tid));
   }
-  // Excluir toda a série (todas as ocorrências com o mesmo seriesId)
-  async function deleteTaskSeries(seriesId: string) {
-    const qy = query(
+  // Excluir toda a série (todas as ocorrências em qualquer dia)
+  async function deleteSeries(seriesId: string) {
+    const q = query(
       collectionGroup(db, "tasks"),
       where("workspaceId", "==", ws),
       where("seriesId", "==", seriesId)
     );
-    const snap = await getDocs(qy);
+    const snap = await getDocs(q);
+    if (snap.empty) return;
     const batch = writeBatch(db);
-    snap.forEach((d) => batch.delete(d.ref));
+    snap.forEach((dref) => batch.delete(dref.ref));
     await batch.commit();
   }
 
   /* ===========================
-     Filtros aplicados
+     Filtros, estatísticas, volumetria
   =========================== */
   const visibleTasks = useMemo(() => {
     return tasks.filter((t) => {
@@ -189,9 +204,6 @@ export default function App() {
     });
   }, [tasks, filterResp, filterOp]);
 
-  /* ===========================
-     Estatísticas / Volumetria
-  =========================== */
   const stats = useMemo(() => {
     const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
     let c = 0, a = 0, p = 0;
@@ -204,63 +216,76 @@ export default function App() {
   }, [visibleTasks]);
 
   const volumetriaPorResp = useMemo(() => {
-    const m = new Map<string, number>();
-    visibleTasks.forEach((t) => m.set(t.responsavel, (m.get(t.responsavel) || 0) + 1));
-    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    const map = new Map<string, number>();
+    visibleTasks.forEach((t) => {
+      map.set(t.responsavel, (map.get(t.responsavel) || 0) + 1);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [visibleTasks]);
 
   const volumetriaPorOp = useMemo(() => {
-    const m = new Map<string, number>();
-    visibleTasks.forEach((t) => m.set(t.operacao, (m.get(t.operacao) || 0) + 1));
-    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    const map = new Map<string, number>();
+    visibleTasks.forEach((t) => {
+      map.set(t.operacao, (map.get(t.operacao) || 0) + 1);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [visibleTasks]);
 
   /* ===========================
-     Colunas por responsável
+     Layout lado a lado (interval partitioning)
   =========================== */
-  const columns: string[] = useMemo(() => {
-    if (filterResp !== "(todos)") return [filterResp];
-    // só mostra colunas de quem tem tarefas visíveis no dia
-    const set = new Set<string>();
-    visibleTasks.forEach((t) => t.responsavel && set.add(t.responsavel));
-    return Array.from(set);
-  }, [visibleTasks, filterResp]);
-
-  // helper de “lanes” (tarefas lado a lado quando se sobrepõem)
-  function computeLanes(colTasks: Task) { /* apenas p/ type helper */ }
-  function lanesFor(tasksCol: Task[]) {
-    type E = Task & { startMin: number; endMin: number; idx: number };
-    const enriched: E[] = tasksCol.map((t, i) => ({
-      ...t, idx: i, startMin: hhmmToMin(t.inicio), endMin: hhmmToMin(t.fim),
+  type Enriched = Task & { startMin: number; endMin: number; idx: number };
+  const enriched = useMemo<Enriched[]>(() => {
+    return visibleTasks.map((t, i) => ({
+      ...t,
+      startMin: hhmmToMin(t.inicio),
+      endMin: hhmmToMin(t.fim),
+      idx: i,
     }));
-    const overlaps = (a: E, b: E) => a.startMin < b.endMin && b.startMin < a.endMin;
+  }, [visibleTasks]);
 
+  const lanesInfo = useMemo(() => {
+    const overlaps = (a: Enriched, b: Enriched) => a.startMin < b.endMin && b.startMin < a.endMin;
     const n = enriched.length;
     const adj: number[][] = Array.from({ length: n }, () => []);
-    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-      if (overlaps(enriched[i], enriched[j])) { adj[i].push(j); adj[j].push(i); }
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (overlaps(enriched[i], enriched[j])) {
+          adj[i].push(j);
+          adj[j].push(i);
+        }
+      }
     }
     const comp: number[] = Array(n).fill(-1);
     let cc = 0;
-    for (let i = 0; i < n; i++) if (comp[i] === -1) {
-      const q = [i]; comp[i] = cc;
-      while (q.length) { const u = q.shift()!; for (const v of adj[u]) if (comp[v] === -1) { comp[v] = cc; q.push(v); } }
+    for (let i = 0; i < n; i++) {
+      if (comp[i] !== -1) continue;
+      const q = [i];
+      comp[i] = cc;
+      while (q.length) {
+        const u = q.shift()!;
+        for (const v of adj[u]) if (comp[v] === -1) { comp[v] = cc; q.push(v); }
+      }
       cc++;
     }
     const result: Record<number, { lane: number; lanesInComp: number }> = {};
     for (let c = 0; c < cc; c++) {
-      const nodes = enriched.filter((_, i) => comp[i] === c)
+      const nodes = enriched
+        .filter((_, i) => comp[i] === c)
         .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
       const lanesEnd: number[] = [];
       for (const t of nodes) {
-        let lane = lanesEnd.findIndex((end) => end <= t.startMin);
+        let lane = -1;
+        for (let li = 0; li < lanesEnd.length; li++) {
+          if (lanesEnd[li] <= t.startMin) { lane = li; break; }
+        }
         if (lane === -1) { lanesEnd.push(t.endMin); lane = lanesEnd.length - 1; }
         else { lanesEnd[lane] = t.endMin; }
         result[t.idx] = { lane, lanesInComp: lanesEnd.length };
       }
     }
-    return { enriched, laneInfo: result };
-  }
+    return result;
+  }, [enriched]);
 
   /* ===========================
      UI helpers
@@ -276,10 +301,9 @@ export default function App() {
   =========================== */
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 p-6">
-      <div className="max-w-7xl mx-auto">
-
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-wrap items-center gap-3 justify-between mb-4">
+        <header className="flex flex-wrap items-center gap-3 justify-between mb-4">
           <h1 className="text-2xl md:text-3xl font-semibold">Esteira de Demandas</h1>
           <div className="flex items-center gap-2">
             <button onClick={() => shiftDate(-1)} className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700">◀︎</button>
@@ -294,7 +318,7 @@ export default function App() {
               + Nova demanda
             </button>
           </div>
-        </div>
+        </header>
 
         {/* Filtros */}
         <div className="flex flex-wrap gap-3 mb-4">
@@ -306,9 +330,12 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todos)</option>
-              {RESPONSAVEIS.map((r) => <option key={r} value={r}>{r}</option>)}
+              {RESPONSAVEIS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
             </select>
           </div>
+
           <div>
             <span className="block text-sm text-neutral-400 mb-1">Filtrar por operação</span>
             <select
@@ -317,7 +344,9 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todas)</option>
-              {OPERACOES.map((o) => <option key={o} value={o}>{o}</option>)}
+              {OPERACOES.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -336,58 +365,52 @@ export default function App() {
           <VolumeCard title="Por operação" rows={volumetriaPorOp} />
         </div>
 
-        {/* Timeline: colunas por responsável */}
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 shadow-xl overflow-x-auto">
-          <div
-            className="grid gap-6"
-            style={{ gridTemplateColumns: `110px repeat(${Math.max(columns.length, 1)}, minmax(260px,1fr))` }}
-          >
-            {/* coluna da escala de horas */}
-            <HourScale timeline={timeline} heightPx={860} />
+        {/* Timeline */}
+        <div className="relative bg-neutral-900 rounded-2xl p-4 shadow-xl grid grid-cols-[110px_1fr] gap-6">
+          <HourScale timeline={timeline} />
+          <div className="relative h-[860px]">
+            {enriched.map((t, i) => {
+              const top = percentFromTime(t.inicio, timeline);
+              const bottom = percentFromTime(t.fim, timeline);
+              const height = Math.max(1, bottom - top);
 
-            {/* colunas de responsáveis */}
-            {columns.map((resp) => {
-              const tasksCol = visibleTasks.filter((t) => t.responsavel === resp);
-              const { enriched, laneInfo } = lanesFor(tasksCol);
+              const info = lanesInfo[i] ?? { lane: 0, lanesInComp: 1 };
+              const gap = 12;
+              const left = `calc(${(info.lane / info.lanesInComp) * 100}% + ${info.lane * gap}px)`;
+              const width = `calc(${100 / info.lanesInComp}% - ${((info.lanesInComp - 1) / info.lanesInComp) * gap}px)`;
+
+              let bg = "bg-sky-500 text-neutral-900";
+              let badge = "NO PRAZO";
+              const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
+              if (t.concluida) { bg = "bg-emerald-500"; badge = "CONCLUÍDA"; }
+              else if (nowMin >= t.endMin) { bg = "bg-red-500"; badge = "ATRASADA"; }
+
               return (
-                <div key={resp} className="relative h-[860px]">
-                  <div className="absolute -top-6 left-0 text-sm text-neutral-300 font-medium">{resp}</div>
-                  {enriched.map((t, i) => {
-                    const top = percentFromTime(t.inicio, timeline);
-                    const bottom = percentFromTime(t.fim, timeline);
-                    const height = Math.max(1, bottom - top);
-
-                    const info = laneInfo[i] ?? { lane: 0, lanesInComp: 1 };
-                    const gap = 12;
-                    const left = `calc(${(info.lane / info.lanesInComp) * 100}% + ${info.lane * gap}px)`;
-                    const width = `calc(${100 / info.lanesInComp}% - ${((info.lanesInComp - 1) / info.lanesInComp) * gap}px)`;
-
-                    let bg = "bg-sky-500 text-neutral-900";
-                    let badge = "NO PRAZO";
-                    const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
-                    if (t.concluida) { bg = "bg-emerald-500"; badge = "CONCLUÍDA"; }
-                    else if (nowMin >= hhmmToMin(t.fim)) { bg = "bg-red-500"; badge = "ATRASADA"; }
-
-                    return (
-                      <div
-                        key={t.id}
-                        className="absolute rounded-xl shadow-lg overflow-hidden cursor-pointer"
-                        style={{ top: `${top}%`, height: `${height}%`, left, width }}
-                        onClick={() => setEditing(t)}
-                        title={`${t.titulo} — ${t.inicio}–${t.fim}`}
-                      >
-                        <div className={`w-full h-full ${bg} flex items-center justify-between px-3`}>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] uppercase tracking-wide bg-black/20 px-2 py-0.5 rounded-full">{badge}</span>
-                            <span className="font-medium text-sm md:text-base line-clamp-2">
-                              {t.titulo}{t.operacao ? <span className="ml-2 text-xs opacity-90">— {t.operacao}</span> : null}
-                            </span>
-                          </div>
-                          <div className="text-xs md:text-sm opacity-80">{t.inicio} – {t.fim}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div
+                  key={t.id}
+                  className="absolute rounded-xl shadow-lg overflow-hidden cursor-pointer"
+                  style={{ top: `${top}%`, height: `${height}%`, left, width }}
+                  onClick={() => setEditing(t)}
+                  title={`${t.titulo} — ${t.inicio}–${t.fim}`}
+                >
+                  <div className={`w-full h-full ${bg} flex items-center justify-between px-3`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-wide bg-black/20 px-2 py-0.5 rounded-full">{badge}</span>
+                      <span className="font-medium text-sm md:text-base line-clamp-2">
+                        {t.titulo}{t.operacao ? <span className="ml-2 text-xs opacity-90"> — {t.operacao}</span> : null}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {t.responsavel && (
+                        <span className="text-xs md:text-sm opacity-90 bg-black/20 px-2 py-0.5 rounded-full">
+                          {t.responsavel}
+                        </span>
+                      )}
+                      <span className="text-xs md:text-sm opacity-80">
+                        {t.inicio} – {t.fim}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -401,20 +424,25 @@ export default function App() {
           title="Nova demanda"
           onCancel={() => setShowNew(false)}
           onSubmit={async (payload) => {
-            await addTask({
-              titulo: payload.titulo,
-              inicio: payload.inicio,
-              fim: payload.fim,
-              concluida: false,
-              responsavel: payload.responsavel,
-              operacao: payload.operacao,
-              ymd: selectedDate,
-              recKind: payload.recKind,
-              seriesId: payload.recKind && payload.recKind !== "once" ? crypto.randomUUID() : undefined,
-              workspaceId: ws,
-              createdAt: Date.now(),
-            });
-            setShowNew(false);
+            try {
+              await addTask({
+                titulo: payload.titulo,
+                inicio: payload.inicio,
+                fim: payload.fim,
+                concluida: false,
+                responsavel: payload.responsavel,
+                operacao: payload.operacao,
+                ymd: selectedDate,
+                recKind: payload.recKind,
+                seriesId: payload.recKind && payload.recKind !== "once" ? uuid() : undefined,
+                workspaceId: ws,
+                createdAt: Date.now(),
+              });
+              setShowNew(false);
+            } catch (e: any) {
+              console.error(e);
+              alert(`Não foi possível salvar a demanda.\n${e?.message || e}`);
+            }
           }}
         />
       )}
@@ -424,15 +452,38 @@ export default function App() {
         <EditModal
           task={editing}
           onCancel={() => setEditing(null)}
-          onDeleteOnce={async () => { await deleteTaskOnce(editing.id, editing.ymd); setEditing(null); }}
-          onDeleteSeries={async () => {
-            if (!editing.seriesId) return;
-            if (confirm("Excluir TODAS as ocorrências desta demanda recorrente?")) {
-              await deleteTaskSeries(editing.seriesId);
+          onDelete={async () => {
+            try {
+              await deleteTask(editing.id, editing.ymd);
               setEditing(null);
+            } catch (e: any) {
+              console.error(e);
+              alert(`Erro ao excluir: ${e?.message || e}`);
             }
           }}
-          onSubmit={async (patch) => { await updateTask(editing.id, editing.ymd, patch); setEditing(null); }}
+          onDeleteSeries={
+            editing.seriesId
+              ? async () => {
+                  if (!confirm("Excluir TODAS as ocorrências desta demanda recorrente?")) return;
+                  try {
+                    await deleteSeries(editing.seriesId!);
+                    setEditing(null);
+                  } catch (e: any) {
+                    console.error(e);
+                    alert(`Erro ao excluir série: ${e?.message || e}`);
+                  }
+                }
+              : undefined
+          }
+          onSubmit={async (patch) => {
+            try {
+              await updateTask(editing.id, editing.ymd, patch);
+              setEditing(null);
+            } catch (e: any) {
+              console.error(e);
+              alert(`Erro ao salvar: ${e?.message || e}`);
+            }
+          }}
         />
       )}
     </div>
@@ -442,11 +493,20 @@ export default function App() {
 /* ===========================
    Componentes de UI
 =========================== */
-function Kpi({ label, value, color }: { label: string; value: number; color: "emerald"|"red"|"sky"|"slate" }) {
-  const bar = color === "emerald" ? "bg-emerald-500"
-    : color === "red" ? "bg-red-500"
-    : color === "sky" ? "bg-sky-500"
-    : "bg-slate-400";
+
+function Kpi({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: "emerald" | "red" | "sky" | "slate";
+}) {
+  const bar =
+    color === "emerald" ? "bg-emerald-500" :
+    color === "red"     ? "bg-red-500"     :
+    color === "sky"     ? "bg-sky-500"     : "bg-slate-400";
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-lg relative overflow-hidden">
       <div className={`absolute inset-y-0 left-0 w-1.5 ${bar}`} />
@@ -476,7 +536,7 @@ function VolumeCard({ title, rows }: { title: string; rows: [string, number][] }
   );
 }
 
-function HourScale({ timeline, heightPx }: { timeline: Timeline; heightPx: number }) {
+function HourScale({ timeline }: { timeline: Timeline }) {
   const ticks: string[] = [];
   for (let m = timeline.startMin; m <= timeline.endMin; m += 30) {
     const h = String(Math.floor(m / 60)).padStart(2, "0");
@@ -484,9 +544,9 @@ function HourScale({ timeline, heightPx }: { timeline: Timeline; heightPx: numbe
     ticks.push(`${h}:${min}`);
   }
   return (
-    <div className="relative select-none pr-2" style={{ height: heightPx }}>
+    <div className="relative select-none pr-2">
       <div className="absolute right-0 top-0 bottom-0 w-px bg-neutral-800" />
-      <div className="h-full flex flex-col justify-between text-xs text-neutral-400">
+      <div className="h-[860px] flex flex-col justify-between text-xs text-neutral-400">
         {ticks.map((t) => (
           <div key={t} className="relative flex items-center">
             <span>{t}</span>
@@ -499,6 +559,7 @@ function HourScale({ timeline, heightPx }: { timeline: Timeline; heightPx: numbe
 }
 
 /* ---------- Modais ---------- */
+
 type ModalTaskInput = {
   titulo: string;
   responsavel: string;
@@ -519,7 +580,7 @@ function TaskModal({
 }) {
   const [titulo, setTitulo] = useState("");
   const [responsavel, setResponsavel] = useState(RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(OPERACOES[0]);
+  const [operacao, setOperacao] = useState(OPERACOES[0] || "");
   const [inicio, setInicio] = useState("08:00");
   const [fim, setFim] = useState("09:00");
   const [recKind, setRecKind] = useState<RecKind>("once");
@@ -531,26 +592,47 @@ function TaskModal({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Nome da demanda</span>
-          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2" placeholder="Ex.: Enviar funil diário" />
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+            placeholder="Ex.: Enviar funil diário"
+          />
         </label>
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Responsável</span>
-          <select value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2">
-            {RESPONSAVEIS.map((r) => <option key={r} value={r}>{r}</option>)}
+          <select
+            value={responsavel}
+            onChange={(e) => setResponsavel(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          >
+            {RESPONSAVEIS.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
           </select>
         </label>
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Operação</span>
-          <select value={operacao} onChange={(e) => setOperacao(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2">
-            {OPERACOES.map((o) => <option key={o} value={o}>{o}</option>)}
+          <select
+            value={operacao}
+            onChange={(e) => setOperacao(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          >
+            {OPERACOES.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
           </select>
         </label>
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Recorrência</span>
-          <select value={recKind} onChange={(e) => setRecKind(e.target.value as RecKind)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2">
+          <select
+            value={recKind}
+            onChange={(e) => setRecKind(e.target.value as RecKind)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          >
             <option value="once">Apenas este dia</option>
             <option value="daily">Todos os dias</option>
             <option value="weekly">Uma vez por semana</option>
@@ -559,24 +641,56 @@ function TaskModal({
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Hora início</span>
-          <input type="time" value={inicio} onChange={(e) => setInicio(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2" />
+          <input
+            type="time"
+            step="60"
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value.slice(0, 5))}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
         </label>
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Hora fim</span>
-          <input type="time" value={fim} onChange={(e) => setFim(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2" />
+          <input
+            type="time"
+            step="60"
+            value={fim}
+            onChange={(e) => setFim(e.target.value.slice(0, 5))}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
         </label>
       </div>
 
       <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">Cancelar</button>
+        <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">
+          Cancelar
+        </button>
         <button
+          type="button"
           onClick={async () => {
-            if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) { alert("Verifique os horários."); return; }
-            await onSubmit({ titulo: titulo.trim() || "Demanda", responsavel, operacao, inicio, fim, recKind });
+            try {
+              if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) {
+                alert("Verifique os horários (HH:MM) e se o fim é maior que o início.");
+                return;
+              }
+              await onSubmit({
+                titulo: titulo.trim() || "Demanda",
+                responsavel,
+                operacao,
+                inicio,
+                fim,
+                recKind,
+              });
+            } catch (e: any) {
+              console.error(e);
+              alert(`Erro ao salvar: ${e?.message || e}`);
+            }
           }}
           className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
-        >Salvar</button>
+        >
+          Salvar
+        </button>
       </div>
     </Modal>
   );
@@ -585,19 +699,19 @@ function TaskModal({
 function EditModal({
   task,
   onCancel,
-  onDeleteOnce,
+  onDelete,
   onDeleteSeries,
   onSubmit,
 }: {
   task: Task;
   onCancel: () => void;
-  onDeleteOnce: () => Promise<void>;
-  onDeleteSeries: () => Promise<void>;
+  onDelete: () => Promise<void>;
+  onDeleteSeries?: () => Promise<void>;
   onSubmit: (patch: Partial<Task>) => Promise<void>;
 }) {
   const [titulo, setTitulo] = useState(task.titulo);
   const [responsavel, setResponsavel] = useState(task.responsavel || RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(task.operacao || OPERACOES[0]);
+  const [operacao, setOperacao] = useState(task.operacao || OPERACOES[0] || "");
   const [inicio, setInicio] = useState(task.inicio);
   const [fim, setFim] = useState(task.fim);
   const [concluida, setConcluida] = useState(task.concluida);
@@ -609,20 +723,36 @@ function EditModal({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Nome da demanda</span>
-          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2" />
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
         </label>
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Responsável</span>
-          <select value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2">
-            {RESPONSAVEIS.map((r) => <option key={r} value={r}>{r}</option>)}
+          <select
+            value={responsavel}
+            onChange={(e) => setResponsavel(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          >
+            {RESPONSAVEIS.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
           </select>
         </label>
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Operação</span>
-          <select value={operacao} onChange={(e) => setOperacao(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2">
-            {OPERACOES.map((o) => <option key={o} value={o}>{o}</option>)}
+          <select
+            value={operacao}
+            onChange={(e) => setOperacao(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          >
+            {OPERACOES.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
           </select>
         </label>
 
@@ -631,9 +761,11 @@ function EditModal({
           <input
             disabled
             value={
-              task.recKind === "daily" ? "todos os dias"
-              : task.recKind === "weekly" ? "uma vez por semana"
-              : `apenas ${task.ymd}`
+              task.recKind === "daily"
+                ? "todos os dias"
+                : task.recKind === "weekly"
+                ? "uma vez por semana"
+                : `apenas ${task.ymd}`
             }
             className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-neutral-500"
           />
@@ -641,12 +773,24 @@ function EditModal({
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Hora início</span>
-          <input type="time" value={inicio} onChange={(e) => setInicio(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2" />
+          <input
+            type="time"
+            step="60"
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value.slice(0, 5))}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
         </label>
 
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Hora fim</span>
-          <input type="time" value={fim} onChange={(e) => setFim(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2" />
+          <input
+            type="time"
+            step="60"
+            value={fim}
+            onChange={(e) => setFim(e.target.value.slice(0, 5))}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+          />
         </label>
       </div>
 
@@ -655,13 +799,15 @@ function EditModal({
         Concluída
       </label>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
+      <div className="flex flex-wrap justify-between gap-2 mt-4">
         <div className="flex gap-2">
-          <button onClick={onDeleteOnce} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500">Excluir esta</button>
-          {task.seriesId && (
+          <button onClick={onDelete} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500">
+            Excluir esta
+          </button>
+          {onDeleteSeries && (
             <button
-              title="Remove todas as ocorrências desta série recorrente"
               onClick={onDeleteSeries}
+              title="Remove todas as ocorrências desta série recorrente"
               className="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600"
             >
               Excluir todos os dias
@@ -669,14 +815,34 @@ function EditModal({
           )}
         </div>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">Cancelar</button>
+          <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">
+            Cancelar
+          </button>
           <button
+            type="button"
             onClick={async () => {
-              if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) { alert("Verifique os horários."); return; }
-              await onSubmit({ titulo: titulo.trim() || "Demanda", inicio, fim, responsavel, operacao, concluida });
+              try {
+                if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) {
+                  alert("Verifique os horários (HH:MM) e se o fim é maior que o início.");
+                  return;
+                }
+                await onSubmit({
+                  titulo: titulo.trim() || "Demanda",
+                  inicio,
+                  fim,
+                  responsavel,
+                  operacao,
+                  concluida,
+                });
+              } catch (e: any) {
+                console.error(e);
+                alert(`Erro ao salvar: ${e?.message || e}`);
+              }
             }}
             className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
-          >Salvar</button>
+          >
+            Salvar
+          </button>
         </div>
       </div>
     </Modal>
@@ -687,8 +853,14 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-2xl shadow-xl">
-        <button className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-200" onClick={onClose} aria-label="Fechar">✕</button>
+      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-xl shadow-xl">
+        <button
+          className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-200"
+          onClick={onClose}
+          aria-label="Fechar"
+        >
+          ✕
+        </button>
         {children}
       </div>
     </div>
