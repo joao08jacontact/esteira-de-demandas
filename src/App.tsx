@@ -114,8 +114,14 @@ function dateToYMD(d: Date) {
 
 export default function App() {
   // workspace via ?ws=
-  const params = new URLSearchParams(window.location.search)
-  const ws = params.get("ws") || "demo"
+  const [ws, setWs] = useState("demo")
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      setWs(params.get("ws") || "demo")
+    }
+  }, [])
 
   const [selectedDate, setSelectedDate] = useState(() => dateToYMD(new Date()))
   const [tasks, setTasks] = useState<Task[]>([])
