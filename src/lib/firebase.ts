@@ -14,7 +14,8 @@ const firebaseConfig = {
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
-// Tarefas do dia: workspaces/{ws}/days/{ymd}/tasks/*
+// Coleção de tarefas:
+// workspaces/{ws}/days/{ymd}/tasks/*
 export function tasksCollection(workspaceId: string, ymd: string) {
   return collection(doc(collection(db, "workspaces"), workspaceId), "days", ymd, "tasks");
 }
