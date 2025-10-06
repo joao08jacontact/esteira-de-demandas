@@ -1,17 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   addDoc,
+  collectionGroup,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   updateDoc,
-  getDocs,
-  // para excluir série inteira:
-  collectionGroup,
   where,
-  writeBatch,
 } from "firebase/firestore";
 import { db, tasksCollection } from "./lib/firebase";
 
@@ -23,76 +21,28 @@ type RecKind = "once" | "daily" | "weekly";
 type Task = {
   id: string;
   titulo: string;
-  inicio: string; // "HH:MM"
-  fim: string; // "HH:MM"
+  inicio: string; // HH:MM
+  fim: string;    // HH:MM
   concluida: boolean;
   responsavel: string;
   operacao: string;
-  ymd: string; // "YYYY-MM-DD"
+  ymd: string; // YYYY-MM-DD
   seriesId?: string;
   recKind?: RecKind;
   workspaceId: string;
   createdAt: number;
 };
 
-type Timeline = { startMin: number; endMin: number; totalMin: number };
-
 /* ===========================
-   Utilitários robustos
+   Constantes
 =========================== */
-function isHHMM(v: any): v is string {
-  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v);
-}
-function hhmmToMin(hhmm: string): number {
-  if (!isHHMM(hhmm)) return 0;
-  const [h, m] = hhmm.split(":").map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return 0;
-  return h * 60 + m;
-}
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
-function buildTimeline(start: string, end: string): Timeline {
-  const startMin = hhmmToMin(start);
-  const endMin = hhmmToMin(end);
-  return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) };
-}
-function percentFromTime(hhmm: string, tl: Timeline): number {
-  const pos = (isHHMM(hhmm) ? hhmmToMin(hhmm) : tl.startMin) - tl.startMin;
-  return clamp((pos / tl.totalMin) * 100, 0, 100);
-}
-function ymdToDate(ymd: string) {
-  if (typeof ymd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-    }
-  const [Y, M, D] = ymd.split("-").map(Number);
-  return new Date(Y, (M || 1) - 1, D || 1, 0, 0, 0, 0);
-}
-function dateToYMD(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+// Colunas do Kanban (apenas esses três)
+const RESPONSAVEIS = ["Bárbara Arruda", "Gabriel Bion", "Luciano Miranda"];
 
-/* ===========================
-   Dados base
-=========================== */
-const RESPONSAVEIS = [
-  "Bárbara Arruda",
-  "Gabriel Bion",
-  "Luciano Miranda",
-  // “João Vinicius” e “Lucas Siqueira” não aparecem em coluna se você não quiser,
-  // mas mantive para filtros e cadastro. Se quiser, remova daqui.
-  "João Vinicius",
-  "Lucas Siqueira",
-];
-
-// Lista fixa de operações (sem “adicionar”)
-const OPS = [
+// Lista fixa de operações
+const OPERACOES = [
   "FMU",
-  "INPISRALI",
+  "INSPIRALI",
   "COGNA",
   "SINGULARIDADES",
   "PÓS COGNA",
@@ -103,11 +53,41 @@ const OPS = [
   "ESTÁCIO",
 ];
 
+// Recorrência: horizontes padrão
+const HORIZON_DAYS = 30;  // daily -> próximos 30 dias
+const WEEKS_COUNT  = 8;   // weekly -> 8 semanas
+
+/* ===========================
+   Utils
+=========================== */
+function isHHMM(v: any): v is string {
+  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v);
+}
+function hhmmToMin(hhmm: string): number {
+  if (!isHHMM(hhmm)) return 0;
+  const [h, m] = hhmm.split(":").map(Number);
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
+function ymdToDate(ymd: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  const [Y, M, D] = ymd.split("-").map(Number);
+  return new Date(Y, (M || 1) - 1, D || 1);
+}
+function dateToYMD(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /* ===========================
    App
 =========================== */
 export default function App() {
-  // workspace via URL ?ws=...
+  // workspace via ?ws=
   const params = new URLSearchParams(window.location.search);
   const ws = params.get("ws") || "demo";
 
@@ -118,17 +98,12 @@ export default function App() {
   const [filterResp, setFilterResp] = useState<string>("(todos)");
   const [filterOp, setFilterOp] = useState<string>("(todas)");
 
-  // UI
+  // modais
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
 
-  // timeline
-  const dayStart = "08:00";
-  const dayEnd = "20:00";
-  const timeline = useMemo(() => buildTimeline(dayStart, dayEnd), []);
-
   /* ===========================
-     Carrega/escuta tarefas do dia
+     Carrega tarefas do dia
   =========================== */
   useEffect(() => {
     const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"));
@@ -136,14 +111,9 @@ export default function App() {
       const list: Task[] = [];
       snap.forEach((d) => {
         const data = d.data() as any;
-
         const ini = data?.inicio;
         const fim = data?.fim;
-        if (!isHHMM(ini) || !isHHMM(fim)) {
-          console.warn("Ignorando tarefa com horários inválidos", d.id, data);
-          return;
-        }
-
+        if (!isHHMM(ini) || !isHHMM(fim)) return; // ignora registros inválidos
         list.push({
           id: d.id,
           titulo: String(data?.titulo ?? "Demanda"),
@@ -164,89 +134,97 @@ export default function App() {
   }, [ws, selectedDate]);
 
   /* ===========================
-     Helpers de CRUD
+     CRUD helpers + recorrência real
   =========================== */
-  async function addTask(input: Omit<Task, "id" | "workspaceId" | "createdAt">) {
-    await addDoc(tasksCollection(ws, input.ymd), {
-      ...input,
+  async function addOne(input: Omit<Task, "id" | "workspaceId" | "createdAt">) {
+    const docData: any = {
+      titulo: input.titulo,
+      inicio: input.inicio,
+      fim: input.fim,
+      concluida: Boolean(input.concluida),
+      responsavel: input.responsavel,
+      operacao: input.operacao,
+      ymd: input.ymd,
+      recKind: input.recKind || "once",
       workspaceId: ws,
       createdAt: Date.now(),
+    };
+    if (input.seriesId) docData.seriesId = input.seriesId; // nunca undefined
+    await addDoc(tasksCollection(ws, input.ymd), docData);
+  }
+
+  function generateOccurrences(kind: RecKind | undefined, startYmd: string): string[] {
+    const occs: string[] = [];
+    const d0 = ymdToDate(startYmd);
+
+    if (!kind || kind === "once") {
+      occs.push(startYmd);
+      return occs;
+    }
+
+    if (kind === "daily") {
+      for (let i = 0; i < HORIZON_DAYS; i++) {
+        const d = new Date(d0);
+        d.setDate(d0.getDate() + i);
+        occs.push(dateToYMD(d));
+      }
+      return occs;
+    }
+
+    if (kind === "weekly") {
+      for (let w = 0; w < WEEKS_COUNT; w++) {
+        const d = new Date(d0);
+        d.setDate(d0.getDate() + w * 7);
+        occs.push(dateToYMD(d));
+      }
+      return occs;
+    }
+
+    return [startYmd];
+  }
+
+  async function addTaskWithRecurrence(base: Omit<Task, "id" | "workspaceId" | "createdAt">) {
+    const seriesId = base.recKind && base.recKind !== "once" ? crypto.randomUUID() : undefined;
+    const occs = generateOccurrences(base.recKind, base.ymd);
+
+    // grava cada ocorrência (uma por dia)
+    await Promise.all(
+      occs.map((ymd) =>
+        addOne({
+          ...base,
+          ymd,
+          seriesId,
+        })
+      )
+    );
+  }
+
+  async function updateTaskSafe(tid: string, ymd: string, patch: Partial<Task>) {
+    const clean: any = {};
+    Object.entries(patch).forEach(([k, v]) => {
+      if (v !== undefined) clean[k] = v;
     });
+    await updateDoc(doc(tasksCollection(ws, ymd), tid), clean);
   }
-  async function updateTask(tid: string, ymd: string, patch: Partial<Task>) {
-    await updateDoc(doc(tasksCollection(ws, ymd), tid), patch as any);
-  }
-  async function deleteTask(tid: string, ymd: string) {
+
+  async function deleteTaskOne(tid: string, ymd: string) {
     await deleteDoc(doc(tasksCollection(ws, ymd), tid));
   }
 
-  // Exclui TODAS as ocorrências de uma série
-  async function deleteSeriesAll(seriesId: string) {
-    if (!seriesId) return;
+  async function deleteAllOccurrences(seriesId: string) {
     const qy = query(
       collectionGroup(db, "tasks"),
       where("workspaceId", "==", ws),
       where("seriesId", "==", seriesId)
     );
     const snap = await getDocs(qy);
-    if (snap.empty) return;
-
-    const batch = writeBatch(db);
-    snap.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
   }
 
   /* ===========================
-     Criação por recorrência
+     Filtros e volumetria
   =========================== */
-  const DAYS_TO_GENERATE = 60; // gere para frente por 60 dias
-
-  async function createTasksFromRecurrence(base: {
-    titulo: string;
-    responsavel: string;
-    operacao: string;
-    inicio: string;
-    fim: string;
-    recKind: RecKind;
-    weeklyDay?: number; // 0..6
-  }) {
-    const seriesId = base.recKind === "once" ? undefined : crypto.randomUUID();
-    const start = ymdToDate(selectedDate);
-
-    for (let i = 0; i < (base.recKind === "once" ? 1 : DAYS_TO_GENERATE); i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-
-      const shouldCreate =
-        base.recKind === "once" ||
-        base.recKind === "daily" ||
-        (base.recKind === "weekly" && d.getDay() === (base.weeklyDay ?? d.getDay()));
-
-      if (!shouldCreate) continue;
-
-      const ymd = dateToYMD(d);
-      const data: any = {
-        titulo: base.titulo.trim() || "Demanda",
-        inicio: base.inicio,
-        fim: base.fim,
-        concluida: false,
-        responsavel: base.responsavel,
-        operacao: base.operacao,
-        ymd,
-        recKind: base.recKind,
-        workspaceId: ws,
-        createdAt: Date.now(),
-      };
-      if (seriesId) data.seriesId = seriesId;
-
-      await addDoc(tasksCollection(ws, ymd), data);
-    }
-  }
-
-  /* ===========================
-     Filtros e estatísticas
-  =========================== */
-  const visibleTasks = useMemo(() => {
+  const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
       const okResp = filterResp === "(todos)" || t.responsavel === filterResp;
       const okOp = filterOp === "(todas)" || t.operacao === filterOp;
@@ -256,89 +234,25 @@ export default function App() {
 
   const stats = useMemo(() => {
     const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
-    let c = 0,
-      a = 0,
-      p = 0;
-    visibleTasks.forEach((t) => {
+    let c = 0, a = 0, p = 0;
+    filteredTasks.forEach((t) => {
       if (t.concluida) c++;
       else if (hhmmToMin(t.fim) <= nowMin) a++;
       else p++;
     });
-    return { total: visibleTasks.length, concluida: c, atrasada: a, noPrazo: p };
-  }, [visibleTasks]);
+    return { total: filteredTasks.length, concluida: c, atrasada: a, noPrazo: p };
+  }, [filteredTasks]);
 
   const volumetriaPorResp = useMemo(() => {
     const map = new Map<string, number>();
-    visibleTasks.forEach((t) => {
-      map.set(t.responsavel, (map.get(t.responsavel) || 0) + 1);
-    });
+    filteredTasks.forEach((t) => map.set(t.responsavel, (map.get(t.responsavel) || 0) + 1));
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [visibleTasks]);
+  }, [filteredTasks]);
 
-  /* ===========================
-     Layout lado a lado (sem sobrepor)
-  =========================== */
-  type Enriched = Task & { startMin: number; endMin: number; idx: number };
-  const enriched = useMemo<Enriched[]>(() => {
-    return visibleTasks.map((t, i) => ({
-      ...t,
-      startMin: hhmmToMin(t.inicio),
-      endMin: hhmmToMin(t.fim),
-      idx: i,
-    }));
-  }, [visibleTasks]);
-
-  const lanesInfo = useMemo(() => {
-    const overlaps = (a: Enriched, b: Enriched) => a.startMin < b.endMin && b.startMin < a.endMin;
-    const n = enriched.length;
-    const adj: number[][] = Array.from({ length: n }, () => []);
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        if (overlaps(enriched[i], enriched[j])) {
-          adj[i].push(j);
-          adj[j].push(i);
-        }
-      }
-    }
-    // componentes
-    const comp: number[] = Array(n).fill(-1);
-    let cc = 0;
-    for (let i = 0; i < n; i++) {
-      if (comp[i] !== -1) continue;
-      const q = [i];
-      comp[i] = cc;
-      while (q.length) {
-        const u = q.shift()!;
-        for (const v of adj[u]) if (comp[v] === -1) { comp[v] = cc; q.push(v); }
-      }
-      cc++;
-    }
-    // alocação de lanes por componente
-    const result: Record<number, { lane: number; lanesInComp: number }> = {};
-    for (let c = 0; c < cc; c++) {
-      const nodes = enriched
-        .filter((_, i) => comp[i] === c)
-        .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
-      const lanesEnd: number[] = [];
-      for (const t of nodes) {
-        let lane = -1;
-        for (let li = 0; li < lanesEnd.length; li++) {
-          if (lanesEnd[li] <= t.startMin) {
-            lane = li;
-            break;
-          }
-        }
-        if (lane === -1) {
-          lanesEnd.push(t.endMin);
-          lane = lanesEnd.length - 1;
-        } else {
-          lanesEnd[lane] = t.endMin;
-        }
-        result[t.idx] = { lane, lanesInComp: lanesEnd.length };
-      }
-    }
-    return result;
-  }, [enriched]);
+  // Quais colunas mostrar (filtro de responsável)
+  const responsaveisVisiveis = useMemo(() => {
+    return filterResp === "(todos)" ? RESPONSAVEIS : RESPONSAVEIS.filter((r) => r === filterResp);
+  }, [filterResp]);
 
   /* ===========================
      UI helpers
@@ -354,7 +268,8 @@ export default function App() {
   =========================== */
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 p-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <header className="flex flex-wrap items-center gap-3 justify-between mb-4">
           <h1 className="text-2xl md:text-3xl font-semibold">Esteira de Demandas</h1>
           <div className="flex items-center gap-2">
@@ -382,12 +297,9 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todos)</option>
-              {RESPONSAVEIS.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
+              {RESPONSAVEIS.map((r) => <option key={r}>{r}</option>)}
             </select>
           </div>
-
           <div>
             <span className="block text-sm text-neutral-400 mb-1">Filtrar por operação</span>
             <select
@@ -396,9 +308,7 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todas)</option>
-              {OPS.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
+              {OPERACOES.map((o) => <option key={o}>{o}</option>)}
             </select>
           </div>
         </div>
@@ -411,69 +321,62 @@ export default function App() {
           <Kpi label="No prazo" value={stats.noPrazo} color="sky" />
         </div>
 
-        {/* Volumetria por responsável */}
+        {/* Volumetria por responsável (voltou) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
           <VolumeCard title="Por responsável" rows={volumetriaPorResp} />
         </div>
 
-        {/* Timeline */}
-        <div className="relative bg-neutral-900 rounded-2xl p-4 shadow-xl grid grid-cols-[110px_1fr] gap-6">
-          <HourScale timeline={timeline} />
-          <div className="relative h-[860px]">
-            {enriched.map((t, i) => {
-              const top = percentFromTime(t.inicio, timeline);
-              const bottom = percentFromTime(t.fim, timeline);
-              const height = Math.max(1, bottom - top);
+        {/* KANBAN por responsável (não usa posicionamento vertical por hora) */}
+        <div
+          className="grid gap-4"
+          style={{ gridTemplateColumns: `repeat(${responsaveisVisiveis.length}, minmax(0, 1fr))` }}
+        >
+          {responsaveisVisiveis.map((resp) => {
+            const list = filteredTasks
+              .filter((t) => t.responsavel === resp)
+              .sort((a, b) => hhmmToMin(a.inicio) - hhmmToMin(b.inicio) || hhmmToMin(a.fim) - hhmmToMin(b.fim) || a.titulo.localeCompare(b.titulo));
 
-              const info = lanesInfo[i] ?? { lane: 0, lanesInComp: 1 };
-              const gap = 12;
-              const left = `calc(${(info.lane / info.lanesInComp) * 100}% + ${info.lane * gap}px)`;
-              const width = `calc(${100 / info.lanesInComp}% - ${((info.lanesInComp - 1) / info.lanesInComp) * gap}px)`;
-
-              let bg = "bg-sky-500 text-neutral-900";
-              let badge = "NO PRAZO";
-              const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
-              if (t.concluida) {
-                bg = "bg-emerald-500";
-                badge = "CONCLUÍDA";
-              } else if (nowMin >= t.endMin) {
-                bg = "bg-red-500";
-                badge = "ATRASADA";
-              }
-
-              return (
-                <div
-                  key={t.id}
-                  className="absolute rounded-xl shadow-lg overflow-hidden cursor-pointer"
-                  style={{ top: `${top}%`, height: `${height}%`, left, width }}
-                  onClick={() => setEditing(t)}
-                  title={`${t.titulo} — ${t.inicio}–${t.fim}`}
-                >
-                  <div className={`w-full h-full ${bg} flex items-center justify-between px-3`}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-wide bg-black/20 px-2 py-0.5 rounded-full">{badge}</span>
-                      <span className="font-medium text-sm md:text-base line-clamp-2">
-                        {t.titulo}
-                        {t.operacao ? (
-                          <span className="ml-2 text-xs opacity-90">— {t.operacao}</span>
-                        ) : null}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {t.responsavel && (
-                        <span className="text-xs md:text-sm opacity-90 bg-black/20 px-2 py-0.5 rounded-full">
-                          {t.responsavel}
-                        </span>
-                      )}
-                      <span className="text-xs md:text-sm opacity-80">
-                        {t.inicio} – {t.fim}
-                      </span>
-                    </div>
-                  </div>
+            return (
+              <div key={resp} className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium">{resp}</h3>
+                  <span className="text-sm text-neutral-400">{list.length}</span>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="space-y-3">
+                  {list.length === 0 && <div className="text-sm text-neutral-500">Sem demandas neste dia</div>}
+
+                  {list.map((t) => {
+                    let badge = "NO PRAZO";
+                    let badgeCls = "bg-sky-500";
+                    const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
+                    if (t.concluida) { badge = "CONCLUÍDA"; badgeCls = "bg-emerald-500"; }
+                    else if (hhmmToMin(t.fim) <= nowMin) { badge = "ATRASADA"; badgeCls = "bg-red-500"; }
+
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setEditing(t)}
+                        className="w-full text-left rounded-xl bg-neutral-800/70 hover:bg-neutral-800 border border-neutral-700 px-3 py-2 shadow-sm"
+                        title={`${t.titulo} • ${t.inicio}-${t.fim}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] uppercase tracking-wide text-neutral-900 px-2 py-0.5 rounded-full ${badgeCls}`}>
+                            {badge}
+                          </span>
+                          <span className="text-xs text-neutral-300">{t.inicio} – {t.fim}</span>
+                        </div>
+                        <div className="mt-1 font-medium">{t.titulo}</div>
+                        {t.operacao && (
+                          <div className="text-xs text-neutral-400 mt-0.5">Operação: {t.operacao}</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -481,20 +384,26 @@ export default function App() {
       {showNew && (
         <TaskModal
           title="Nova demanda"
-          ops={OPS}
           onCancel={() => setShowNew(false)}
-          currentYmd={selectedDate}
           onSubmit={async (payload) => {
-            await createTasksFromRecurrence({
-              titulo: payload.titulo,
-              inicio: payload.inicio,
-              fim: payload.fim,
-              responsavel: payload.responsavel,
-              operacao: payload.operacao,
-              recKind: payload.recKind ?? "once",
-              weeklyDay: payload.weeklyDay,
-            });
-            setShowNew(false);
+            try {
+              await addTaskWithRecurrence({
+                titulo: payload.titulo.trim() || "Demanda",
+                inicio: payload.inicio,
+                fim: payload.fim,
+                concluida: false,
+                responsavel: payload.responsavel,
+                operacao: payload.operacao,
+                ymd: selectedDate,
+                recKind: payload.recKind,
+                seriesId: undefined, // será gerado dentro de addTaskWithRecurrence
+                workspaceId: ws,
+                createdAt: Date.now(),
+              } as any);
+              setShowNew(false);
+            } catch (e: any) {
+              alert(`Não foi possível salvar a demanda.\n${String(e?.message || e)}`);
+            }
           }}
         />
       )}
@@ -503,18 +412,23 @@ export default function App() {
       {editing && (
         <EditModal
           task={editing}
-          ops={OPS}
           onCancel={() => setEditing(null)}
-          onDelete={async () => {
-            await deleteTask(editing.id, editing.ymd);
+          onDeleteOne={async () => {
+            await deleteTaskOne(editing.id, editing.ymd);
             setEditing(null);
           }}
+          onDeleteAll={
+            editing.seriesId
+              ? async () => {
+                  if (confirm("Excluir TODAS as ocorrências desta demanda recorrente?")) {
+                    await deleteAllOccurrences(editing.seriesId);
+                    setEditing(null);
+                  }
+                }
+              : undefined
+          }
           onSubmit={async (patch) => {
-            await updateTask(editing.id, editing.ymd, patch);
-            setEditing(null);
-          }}
-          onDeleteSeries={async (seriesId) => {
-            await deleteSeriesAll(seriesId);
+            await updateTaskSafe(editing.id, editing.ymd, patch);
             setEditing(null);
           }}
         />
@@ -524,7 +438,7 @@ export default function App() {
 }
 
 /* ===========================
-   Componentes de UI
+   Componentes UI
 =========================== */
 function Kpi({
   label,
@@ -536,13 +450,10 @@ function Kpi({
   color: "emerald" | "red" | "sky" | "slate";
 }) {
   const bar =
-    color === "emerald"
-      ? "bg-emerald-500"
-      : color === "red"
-      ? "bg-red-500"
-      : color === "sky"
-      ? "bg-sky-500"
-      : "bg-slate-400";
+    color === "emerald" ? "bg-emerald-500"
+    : color === "red"       ? "bg-red-500"
+    : color === "sky"       ? "bg-sky-500"
+    :                         "bg-slate-400";
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-lg relative overflow-hidden">
       <div className={`absolute inset-y-0 left-0 w-1.5 ${bar}`} />
@@ -572,28 +483,6 @@ function VolumeCard({ title, rows }: { title: string; rows: [string, number][] }
   );
 }
 
-function HourScale({ timeline }: { timeline: Timeline }) {
-  const ticks: string[] = [];
-  for (let m = timeline.startMin; m <= timeline.endMin; m += 30) {
-    const h = String(Math.floor(m / 60)).padStart(2, "0");
-    const min = String(m % 60).padStart(2, "0");
-    ticks.push(`${h}:${min}`);
-  }
-  return (
-    <div className="relative select-none pr-2">
-      <div className="absolute right-0 top-0 bottom-0 w-px bg-neutral-800" />
-      <div className="h-[860px] flex flex-col justify-between text-xs text-neutral-400">
-        {ticks.map((t) => (
-          <div key={t} className="relative flex items-center">
-            <span>{t}</span>
-            <div className={`absolute left-full ml-4 top-1/2 -translate-y-1/2 w-[9999px] h-px ${t.endsWith(":00") ? "bg-neutral-700" : "bg-neutral-800/50"}`} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ---------- Modais ---------- */
 type ModalTaskInput = {
   titulo: string;
@@ -602,32 +491,23 @@ type ModalTaskInput = {
   inicio: string;
   fim: string;
   recKind?: RecKind;
-  weeklyDay?: number;
 };
 
 function TaskModal({
   title,
-  ops,
   onCancel,
   onSubmit,
-  currentYmd,
 }: {
   title: string;
-  ops: string[];
   onCancel: () => void;
   onSubmit: (t: ModalTaskInput) => Promise<void>;
-  currentYmd: string;
 }) {
   const [titulo, setTitulo] = useState("");
   const [responsavel, setResponsavel] = useState(RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(ops[0] || "");
+  const [operacao, setOperacao] = useState(OPERACOES[0]);
   const [inicio, setInicio] = useState("08:00");
   const [fim, setFim] = useState("09:00");
   const [recKind, setRecKind] = useState<RecKind>("once");
-
-  const startDOW = ymdToDate(currentYmd).getDay(); // 0..6
-  const [weeklyDay, setWeeklyDay] = useState<number>(startDOW);
-  const WEEKDAYS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 
   return (
     <Modal onClose={onCancel}>
@@ -651,9 +531,7 @@ function TaskModal({
             onChange={(e) => setResponsavel(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {RESPONSAVEIS.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
+            {RESPONSAVEIS.map((r) => <option key={r}>{r}</option>)}
           </select>
         </label>
 
@@ -664,9 +542,7 @@ function TaskModal({
             onChange={(e) => setOperacao(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {ops.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
+            {OPERACOES.map((o) => <option key={o}>{o}</option>)}
           </select>
         </label>
 
@@ -681,21 +557,6 @@ function TaskModal({
             <option value="daily">Todos os dias</option>
             <option value="weekly">Uma vez por semana</option>
           </select>
-
-          {recKind === "weekly" && (
-            <div className="mt-2">
-              <span className="block mb-1 text-neutral-300">Dia da semana</span>
-              <select
-                value={weeklyDay}
-                onChange={(e) => setWeeklyDay(parseInt(e.target.value))}
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
-              >
-                {WEEKDAYS.map((d, idx) => (
-                  <option key={idx} value={idx}>{d}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </label>
 
         <label className="text-sm">
@@ -729,15 +590,7 @@ function TaskModal({
               alert("Verifique os horários.");
               return;
             }
-            await onSubmit({
-              titulo: titulo.trim() || "Demanda",
-              responsavel,
-              operacao,
-              inicio,
-              fim,
-              recKind,
-              weeklyDay,
-            });
+            await onSubmit({ titulo: titulo.trim() || "Demanda", responsavel, operacao, inicio, fim, recKind });
           }}
           className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
         >
@@ -750,22 +603,20 @@ function TaskModal({
 
 function EditModal({
   task,
-  ops,
   onCancel,
-  onDelete,
+  onDeleteOne,
+  onDeleteAll,
   onSubmit,
-  onDeleteSeries,
 }: {
   task: Task;
-  ops: string[];
   onCancel: () => void;
-  onDelete: () => Promise<void>;
+  onDeleteOne: () => Promise<void>;
+  onDeleteAll?: () => Promise<void>;
   onSubmit: (patch: Partial<Task>) => Promise<void>;
-  onDeleteSeries?: (seriesId: string) => Promise<void>;
 }) {
   const [titulo, setTitulo] = useState(task.titulo);
   const [responsavel, setResponsavel] = useState(task.responsavel || RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(task.operacao || ops[0] || "");
+  const [operacao, setOperacao] = useState(task.operacao || OPERACOES[0]);
   const [inicio, setInicio] = useState(task.inicio);
   const [fim, setFim] = useState(task.fim);
   const [concluida, setConcluida] = useState(task.concluida);
@@ -791,11 +642,7 @@ function EditModal({
             onChange={(e) => setResponsavel(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {RESPONSAVEIS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
+            {RESPONSAVEIS.map((r) => <option key={r}>{r}</option>)}
           </select>
         </label>
 
@@ -806,11 +653,7 @@ function EditModal({
             onChange={(e) => setOperacao(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
           >
-            {ops.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
+            {OPERACOES.map((o) => <option key={o}>{o}</option>)}
           </select>
         </label>
 
@@ -856,24 +699,20 @@ function EditModal({
       </label>
 
       <div className="flex flex-wrap justify-between gap-2 mt-4">
-        <button onClick={onDelete} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500">
-          Excluir esta
-        </button>
-
-        {task.seriesId && (
-          <button
-            title="Remove todas as ocorrências desta série recorrente"
-            onClick={async () => {
-              if (confirm("Excluir TODAS as ocorrências desta demanda recorrente?")) {
-                await onDeleteSeries?.(task.seriesId!);
-              }
-            }}
-            className="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600"
-          >
-            Excluir todos os dias
+        <div className="flex gap-2">
+          <button onClick={onDeleteOne} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500">
+            Excluir esta
           </button>
-        )}
-
+          {onDeleteAll && (
+            <button
+              onClick={onDeleteAll}
+              title="Remove todas as ocorrências desta série recorrente"
+              className="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600"
+            >
+              Excluir todos os dias
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           <button onClick={onCancel} className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700">
             Cancelar
@@ -907,7 +746,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-xl shadow-xl">
+      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-2xl shadow-xl">
         <button
           className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-200"
           onClick={onClose}
