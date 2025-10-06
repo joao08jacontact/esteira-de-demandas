@@ -1,4 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+"use client"
+
+import type React from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   addDoc,
   collectionGroup,
@@ -10,43 +13,38 @@ import {
   query,
   updateDoc,
   where,
-} from "firebase/firestore";
-import { db, tasksCollection } from "./lib/firebase";
+} from "firebase/firestore"
+import { db, tasksCollection } from "../lib/firebase"
 
 /* ===========================
    Tipos
 =========================== */
 
-type RecKind = "once" | "daily" | "weekly";
+type RecKind = "once" | "daily" | "weekly"
 
 type Task = {
-  id: string;
-  titulo: string;
-  inicio: string; // HH:MM
-  fim: string;    // HH:MM
-  concluida: boolean;
-  responsavel: string;
-  operacao: string;
-  ymd: string; // YYYY-MM-DD
-  seriesId?: string;
-  recKind?: RecKind;
-  workspaceId: string;
-  createdAt: number;
-};
+  id: string
+  titulo: string
+  inicio: string // HH:MM
+  fim: string // HH:MM
+  concluida: boolean
+  responsavel: string
+  operacao: string
+  ymd: string // YYYY-MM-DD
+  seriesId?: string
+  recKind?: RecKind
+  weekDay?: number // 0-6 (Sunday-Saturday)
+  workspaceId: string
+  createdAt: number
+}
 
-type Timeline = { startMin: number; endMin: number; totalMin: number };
+type Timeline = { startMin: number; endMin: number; totalMin: number }
 
 /* ===========================
    Constantes (responsáveis e operações)
 =========================== */
 
-const RESPONSAVEIS = [
-  "Bárbara Arruda",
-  "Gabriel Bion",
-  "Luciano Miranda",
-  "João Vinicius",
-  "Lucas Siqueira",
-];
+const RESPONSAVEIS = ["Bárbara Arruda", "Gabriel Bion", "Luciano Miranda"]
 
 const OPERACOES = [
   "FMU",
@@ -59,45 +57,55 @@ const OPERACOES = [
   "FGTS",
   "DIROMA",
   "ESTÁCIO",
-];
+]
+
+const DAYS_OF_WEEK = [
+  { value: 0, label: "Domingo" },
+  { value: 1, label: "Segunda-feira" },
+  { value: 2, label: "Terça-feira" },
+  { value: 3, label: "Quarta-feira" },
+  { value: 4, label: "Quinta-feira" },
+  { value: 5, label: "Sexta-feira" },
+  { value: 6, label: "Sábado" },
+]
 
 /* ===========================
    Utils robustos
 =========================== */
 
 function isHHMM(v: any): v is string {
-  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v);
+  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v)
 }
 function hhmmToMin(hhmm: string): number {
-  if (!isHHMM(hhmm)) return 0;
-  const [h, m] = hhmm.split(":").map(Number);
-  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+  if (!isHHMM(hhmm)) return 0
+  const [h, m] = hhmm.split(":").map(Number)
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0)
 }
 function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
+  return Math.max(min, Math.min(max, n))
 }
 function buildTimeline(start: string, end: string): Timeline {
-  const startMin = hhmmToMin(start);
-  const endMin = hhmmToMin(end);
-  return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) };
+  const startMin = hhmmToMin(start)
+  const endMin = hhmmToMin(end)
+  return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) }
 }
 function percentFromTime(hhmm: string, tl: Timeline): number {
-  const pos = (isHHMM(hhmm) ? hhmmToMin(hhmm) : tl.startMin) - tl.startMin;
-  return clamp((pos / tl.totalMin) * 100, 0, 100);
+  const pos = (isHHMM(hhmm) ? hhmmToMin(hhmm) : tl.startMin) - tl.startMin
+  return clamp((pos / tl.totalMin) * 100, 0, 100)
 }
 function ymdToDate(ymd: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate())
   }
-  const [Y, M, D] = ymd.split("-").map(Number);
-  return new Date(Y, (M || 1) - 1, D || 1);
+  const [Y, M, D] = ymd.split("-").map(Number)
+  return new Date(Y, (M || 1) - 1, D || 1)
 }
 function dateToYMD(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
 }
 
 /* ===========================
@@ -106,57 +114,147 @@ function dateToYMD(d: Date) {
 
 export default function App() {
   // workspace via ?ws=
-  const params = new URLSearchParams(window.location.search);
-  const ws = params.get("ws") || "demo";
+  const params = new URLSearchParams(window.location.search)
+  const ws = params.get("ws") || "demo"
 
-  const [selectedDate, setSelectedDate] = useState(() => dateToYMD(new Date()));
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedDate, setSelectedDate] = useState(() => dateToYMD(new Date()))
+  const [tasks, setTasks] = useState<Task[]>([])
 
   // filtros (lista suspensa no topo)
-  const [filterResp, setFilterResp] = useState<string>("(todos)");
-  const [filterOp, setFilterOp] = useState<string>("(todas)");
+  const [filterResp, setFilterResp] = useState<string>("(todos)")
+  const [filterOp, setFilterOp] = useState<string>("(todas)")
 
   // modais
-  const [showNew, setShowNew] = useState(false);
-  const [editing, setEditing] = useState<Task | null>(null);
+  const [showNew, setShowNew] = useState(false)
+  const [editing, setEditing] = useState<Task | null>(null)
 
-  // timeline base (mais “alto” = maiores espaços entre 30m)
-  const dayStart = "08:00";
-  const dayEnd = "20:00";
-  const timeline = useMemo(() => buildTimeline(dayStart, dayEnd), []);
+  // timeline base (mais "alto" = maiores espaços entre 30m)
+  const dayStart = "08:00"
+  const dayEnd = "20:00"
+  const timeline = useMemo(() => buildTimeline(dayStart, dayEnd), [])
+
+  const [currentTime, setCurrentTime] = useState(() => new Date().toTimeString().slice(0, 5))
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date().toTimeString().slice(0, 5))
+    }, 60000) // Update every minute
+    return () => clearInterval(interval)
+  }, [])
 
   /* ===========================
      Carrega tarefas do dia
   =========================== */
   useEffect(() => {
-    const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"));
-    return onSnapshot(qy, (snap) => {
-      const list: Task[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as any;
+    const loadTasks = async () => {
+      // Load tasks for the selected date
+      const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"))
 
-        const ini = data?.inicio;
-        const fim = data?.fim;
-        if (!isHHMM(ini) || !isHHMM(fim)) return; // ignora registros ruins
+      return onSnapshot(qy, async (snap) => {
+        const list: Task[] = []
 
-        list.push({
-          id: d.id,
-          titulo: String(data?.titulo ?? "Demanda"),
-          inicio: ini,
-          fim: fim,
-          concluida: Boolean(data?.concluida),
-          responsavel: String(data?.responsavel ?? ""),
-          operacao: String(data?.operacao ?? ""),
-          ymd: String(data?.ymd ?? selectedDate),
-          seriesId: data?.seriesId,
-          recKind: (data?.recKind ?? "once") as RecKind,
-          workspaceId: String(data?.workspaceId ?? ws),
-          createdAt: Number(data?.createdAt ?? Date.now()),
-        });
-      });
-      setTasks(list);
-    });
-  }, [ws, selectedDate]);
+        // Add tasks from the selected date
+        snap.forEach((d) => {
+          const data = d.data() as any
+          const ini = data?.inicio
+          const fim = data?.fim
+          if (!isHHMM(ini) || !isHHMM(fim)) return
+
+          list.push({
+            id: d.id,
+            titulo: String(data?.titulo ?? "Demanda"),
+            inicio: ini,
+            fim: fim,
+            concluida: Boolean(data?.concluida),
+            responsavel: String(data?.responsavel ?? ""),
+            operacao: String(data?.operacao ?? ""),
+            ymd: String(data?.ymd ?? selectedDate),
+            seriesId: data?.seriesId,
+            recKind: (data?.recKind ?? "once") as RecKind,
+            weekDay: data?.weekDay,
+            workspaceId: String(data?.workspaceId ?? ws),
+            createdAt: Number(data?.createdAt ?? Date.now()),
+          })
+        })
+
+        // Load recurring tasks (daily and weekly)
+        try {
+          const recurringQuery = query(
+            collectionGroup(db, "tasks"),
+            where("workspaceId", "==", ws),
+            where("recKind", "in", ["daily", "weekly"]),
+          )
+
+          const recurringSnap = await getDocs(recurringQuery)
+          const selectedDateObj = ymdToDate(selectedDate)
+          const selectedDayOfWeek = selectedDateObj.getDay()
+
+          recurringSnap.forEach((d) => {
+            const data = d.data() as any
+            const taskYmd = data?.ymd
+
+            // Skip if it's already from the selected date (already loaded above)
+            if (taskYmd === selectedDate) return
+
+            const ini = data?.inicio
+            const fim = data?.fim
+            if (!isHHMM(ini) || !isHHMM(fim)) return
+
+            const recKind = data?.recKind as RecKind
+
+            // For daily tasks: show if the task was created before or on the selected date
+            if (recKind === "daily") {
+              const taskDate = ymdToDate(taskYmd)
+              if (taskDate <= selectedDateObj) {
+                list.push({
+                  id: `${d.id}-recurring-${selectedDate}`,
+                  titulo: String(data?.titulo ?? "Demanda"),
+                  inicio: ini,
+                  fim: fim,
+                  concluida: false, // Recurring tasks start as not completed each day
+                  responsavel: String(data?.responsavel ?? ""),
+                  operacao: String(data?.operacao ?? ""),
+                  ymd: selectedDate, // Use selected date for display
+                  seriesId: data?.seriesId,
+                  recKind: "daily",
+                  workspaceId: String(data?.workspaceId ?? ws),
+                  createdAt: Number(data?.createdAt ?? Date.now()),
+                })
+              }
+            }
+
+            // For weekly tasks: show if it matches the day of week
+            if (recKind === "weekly" && data?.weekDay === selectedDayOfWeek) {
+              const taskDate = ymdToDate(taskYmd)
+              if (taskDate <= selectedDateObj) {
+                list.push({
+                  id: `${d.id}-recurring-${selectedDate}`,
+                  titulo: String(data?.titulo ?? "Demanda"),
+                  inicio: ini,
+                  fim: fim,
+                  concluida: false,
+                  responsavel: String(data?.responsavel ?? ""),
+                  operacao: String(data?.operacao ?? ""),
+                  ymd: selectedDate,
+                  seriesId: data?.seriesId,
+                  recKind: "weekly",
+                  weekDay: data?.weekDay,
+                  workspaceId: String(data?.workspaceId ?? ws),
+                  createdAt: Number(data?.createdAt ?? Date.now()),
+                })
+              }
+            }
+          })
+        } catch (error) {
+          console.error("[v0] Error loading recurring tasks:", error)
+        }
+
+        setTasks(list)
+      })
+    }
+
+    return loadTasks()
+  }, [ws, selectedDate])
 
   /* ===========================
      CRUD helpers
@@ -174,36 +272,33 @@ export default function App() {
       recKind: input.recKind || "once",
       workspaceId: ws,
       createdAt: Date.now(),
-    };
+    }
     // Nunca envie undefined!
-    if (input.seriesId) docData.seriesId = input.seriesId;
+    if (input.seriesId) docData.seriesId = input.seriesId
+    if (input.weekDay !== undefined) docData.weekDay = input.weekDay
 
-    await addDoc(tasksCollection(ws, input.ymd), docData);
+    await addDoc(tasksCollection(ws, input.ymd), docData)
   }
 
   async function updateTaskSafe(tid: string, ymd: string, patch: Partial<Task>) {
     // remove chaves undefined
-    const clean: any = {};
+    const clean: any = {}
     Object.entries(patch).forEach(([k, v]) => {
-      if (v !== undefined) clean[k] = v;
-    });
-    await updateDoc(doc(tasksCollection(ws, ymd), tid), clean);
+      if (v !== undefined) clean[k] = v
+    })
+    await updateDoc(doc(tasksCollection(ws, ymd), tid), clean)
   }
 
   async function deleteTaskOne(tid: string, ymd: string) {
-    await deleteDoc(doc(tasksCollection(ws, ymd), tid));
+    await deleteDoc(doc(tasksCollection(ws, ymd), tid))
   }
 
   async function deleteAllOccurrences(seriesId: string) {
     // Apaga todas as ocorrências no workspace, independente do dia
-    const qy = query(
-      collectionGroup(db, "tasks"),
-      where("workspaceId", "==", ws),
-      where("seriesId", "==", seriesId)
-    );
-    const snap = await getDocs(qy);
-    const ops = snap.docs.map((d) => deleteDoc(d.ref));
-    await Promise.all(ops);
+    const qy = query(collectionGroup(db, "tasks"), where("workspaceId", "==", ws), where("seriesId", "==", seriesId))
+    const snap = await getDocs(qy)
+    const ops = snap.docs.map((d) => deleteDoc(d.ref))
+    await Promise.all(ops)
   }
 
   /* ===========================
@@ -212,101 +307,103 @@ export default function App() {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
-      const okResp = filterResp === "(todos)" || t.responsavel === filterResp;
-      const okOp = filterOp === "(todas)" || t.operacao === filterOp;
-      return okResp && okOp;
-    });
-  }, [tasks, filterResp, filterOp]);
+      const okResp = filterResp === "(todos)" || t.responsavel === filterResp
+      const okOp = filterOp === "(todas)" || t.operacao === filterOp
+      return okResp && okOp
+    })
+  }, [tasks, filterResp, filterOp])
 
   const stats = useMemo(() => {
-    const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
+    const nowMin = hhmmToMin(currentTime)
     let c = 0,
       a = 0,
-      p = 0;
+      p = 0
     filteredTasks.forEach((t) => {
-      if (t.concluida) c++;
-      else if (hhmmToMin(t.fim) <= nowMin) a++;
-      else p++;
-    });
-    return { total: filteredTasks.length, concluida: c, atrasada: a, noPrazo: p };
-  }, [filteredTasks]);
+      if (t.concluida) c++
+      else if (hhmmToMin(t.fim) <= nowMin) a++
+      else p++
+    })
+    return { total: filteredTasks.length, concluida: c, atrasada: a, noPrazo: p }
+  }, [filteredTasks, currentTime])
 
   const volumetriaPorResp = useMemo(() => {
-    const map = new Map<string, number>();
-    filteredTasks.forEach((t) => map.set(t.responsavel, (map.get(t.responsavel) || 0) + 1));
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filteredTasks]);
+    const map = new Map<string, number>()
+    filteredTasks.forEach((t) => map.set(t.responsavel, (map.get(t.responsavel) || 0) + 1))
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+  }, [filteredTasks])
 
   /* ===========================
      Colunas por responsável
   =========================== */
 
-  type Enriched = Task & { startMin: number; endMin: number; idx: number };
+  type Enriched = Task & { startMin: number; endMin: number; idx: number }
 
   function computeLanes(list: Enriched[]) {
     // interval partitioning por componente de sobreposição
-    const overlaps = (a: Enriched, b: Enriched) => a.startMin < b.endMin && b.startMin < a.endMin;
-    const n = list.length;
-    const adj: number[][] = Array.from({ length: n }, () => []);
+    const overlaps = (a: Enriched, b: Enriched) => a.startMin < b.endMin && b.startMin < a.endMin
+    const n = list.length
+    const adj: number[][] = Array.from({ length: n }, () => [])
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
         if (overlaps(list[i], list[j])) {
-          adj[i].push(j);
-          adj[j].push(i);
+          adj[i].push(j)
+          adj[j].push(i)
         }
       }
     }
-    const comp: number[] = Array(n).fill(-1);
-    let cc = 0;
+    const comp: number[] = Array(n).fill(-1)
+    let cc = 0
     for (let i = 0; i < n; i++) {
-      if (comp[i] !== -1) continue;
-      const q = [i];
-      comp[i] = cc;
+      if (comp[i] !== -1) continue
+      const q = [i]
+      comp[i] = cc
       while (q.length) {
-        const u = q.shift()!;
-        for (const v of adj[u]) if (comp[v] === -1) { comp[v] = cc; q.push(v); }
+        const u = q.shift()!
+        for (const v of adj[u])
+          if (comp[v] === -1) {
+            comp[v] = cc
+            q.push(v)
+          }
       }
-      cc++;
+      cc++
     }
-    const result: Record<number, { lane: number; lanesInComp: number }> = {};
+    const result: Record<number, { lane: number; lanesInComp: number }> = {}
     for (let c = 0; c < cc; c++) {
-      const nodes = list
-        .filter((_, i) => comp[i] === c)
-        .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+      const nodes = list.filter((_, i) => comp[i] === c).sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin)
 
-      const lanesEnd: number[] = [];
+      const lanesEnd: number[] = []
       for (const t of nodes) {
-        let lane = -1;
+        let lane = -1
         for (let li = 0; li < lanesEnd.length; li++) {
           if (lanesEnd[li] <= t.startMin) {
-            lane = li;
-            break;
+            lane = li
+            break
           }
         }
         if (lane === -1) {
-          lanesEnd.push(t.endMin);
-          lane = lanesEnd.length - 1;
+          lanesEnd.push(t.endMin)
+          lane = lanesEnd.length - 1
         } else {
-          lanesEnd[lane] = t.endMin;
+          lanesEnd[lane] = t.endMin
         }
-        result[t.idx] = { lane, lanesInComp: lanesEnd.length };
+        result[t.idx] = { lane, lanesInComp: lanesEnd.length }
       }
     }
-    return result;
+    return result
   }
 
   // quais colunas mostrar (todos ou 1 filtrado)
   const responsaveisVisiveis = useMemo(() => {
-    return filterResp === "(todos)" ? RESPONSAVEIS : RESPONSAVEIS.filter((r) => r === filterResp);
-  }, [filterResp]);
+    return filterResp === "(todos)" ? RESPONSAVEIS : RESPONSAVEIS.filter((r) => r === filterResp)
+  }, [filterResp])
 
   /* ===========================
      UI helpers
   =========================== */
   function shiftDate(days: number) {
-    const d = ymdToDate(selectedDate);
-    d.setDate(d.getDate() + days);
-    setSelectedDate(dateToYMD(d));
+    const d = ymdToDate(selectedDate)
+    d.setDate(d.getDate() + days)
+    setSelectedDate(dateToYMD(d))
   }
 
   /* ===========================
@@ -319,15 +416,28 @@ export default function App() {
         <header className="flex flex-wrap items-center gap-3 justify-between mb-4">
           <h1 className="text-2xl md:text-3xl font-semibold">Esteira de Demandas</h1>
           <div className="flex items-center gap-2">
-            <button onClick={() => shiftDate(-1)} className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700">◀︎</button>
+            <button
+              onClick={() => shiftDate(-1)}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
+            >
+              ◀︎
+            </button>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             />
-            <button onClick={() => shiftDate(1)} className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700">▶︎</button>
-            <button onClick={() => setShowNew(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium">
+            <button
+              onClick={() => shiftDate(1)}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
+            >
+              ▶︎
+            </button>
+            <button
+              onClick={() => setShowNew(true)}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
+            >
               + Nova demanda
             </button>
           </div>
@@ -343,7 +453,9 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todos)</option>
-              {RESPONSAVEIS.map((r) => <option key={r}>{r}</option>)}
+              {RESPONSAVEIS.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
             </select>
           </div>
 
@@ -355,7 +467,9 @@ export default function App() {
               className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
             >
               <option>(todas)</option>
-              {OPERACOES.map((o) => <option key={o}>{o}</option>)}
+              {OPERACOES.map((o) => (
+                <option key={o}>{o}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -374,21 +488,26 @@ export default function App() {
         </div>
 
         {/* Timeline em colunas por responsável */}
-        <div className="rounded-2xl bg-neutral-900 p-4 shadow-xl">
+        <div className="rounded-2xl bg-neutral-900 p-4 shadow-xl overflow-x-auto">
           <div
-            className="grid gap-6"
-            style={{ gridTemplateColumns: `110px repeat(${responsaveisVisiveis.length}, minmax(0, 1fr))` }}
+            className="grid gap-6 min-w-max"
+            style={{ gridTemplateColumns: `110px repeat(${responsaveisVisiveis.length}, minmax(200px, 1fr))` }}
           >
             {/* Escala de horas */}
-            <HourScale timeline={timeline} />
+            <HourScale timeline={timeline} currentTime={currentTime} />
 
             {/* Uma coluna para cada responsável */}
             {responsaveisVisiveis.map((resp) => {
               const only = filteredTasks
                 .filter((t) => t.responsavel === resp)
-                .map((t, i) => ({ ...t, startMin: hhmmToMin(t.inicio), endMin: hhmmToMin(t.fim), idx: i })) as Enriched[];
+                .map((t, i) => ({
+                  ...t,
+                  startMin: hhmmToMin(t.inicio),
+                  endMin: hhmmToMin(t.fim),
+                  idx: i,
+                })) as Enriched[]
 
-              const lanes = computeLanes(only);
+              const lanes = computeLanes(only)
 
               return (
                 <div key={resp} className="relative">
@@ -400,40 +519,54 @@ export default function App() {
 
                   <div className="relative h-[860px]">
                     {/* linhas de grade (apenas visuais) */}
-                    {Array.from({ length: (timeline.totalMin / 30) + 1 }).map((_, i) => {
-                      const m = timeline.startMin + i * 30;
-                      const h = String(Math.floor(m / 60)).padStart(2, "0");
-                      const mm = String(m % 60).padStart(2, "0");
-                      const t = `${h}:${mm}`;
+                    {Array.from({ length: timeline.totalMin / 30 + 1 }).map((_, i) => {
+                      const m = timeline.startMin + i * 30
+                      const h = String(Math.floor(m / 60)).padStart(2, "0")
+                      const mm = String(m % 60).padStart(2, "0")
+                      const t = `${h}:${mm}`
                       return (
                         <div
                           key={i}
                           className={`absolute left-0 right-0 h-px ${t.endsWith(":00") ? "bg-neutral-700" : "bg-neutral-800/50"}`}
                           style={{ top: `${percentFromTime(t, timeline)}%` }}
                         />
-                      );
+                      )
                     })}
+
+                    {isHHMM(currentTime) &&
+                      hhmmToMin(currentTime) >= timeline.startMin &&
+                      hhmmToMin(currentTime) <= timeline.endMin && (
+                        <div
+                          className="absolute left-0 right-0 h-0.5 bg-yellow-400 z-10 pointer-events-none"
+                          style={{ top: `${percentFromTime(currentTime, timeline)}%` }}
+                        >
+                          <div className="absolute -left-1 -top-1 w-2 h-2 bg-yellow-400 rounded-full" />
+                          <div className="absolute right-0 -top-3 text-xs text-yellow-400 font-medium">
+                            AGORA {currentTime}
+                          </div>
+                        </div>
+                      )}
 
                     {/* cartões da coluna */}
                     {only.map((t, i) => {
-                      const top = percentFromTime(t.inicio, timeline);
-                      const bottom = percentFromTime(t.fim, timeline);
-                      const height = Math.max(1, bottom - top);
+                      const top = percentFromTime(t.inicio, timeline)
+                      const bottom = percentFromTime(t.fim, timeline)
+                      const height = Math.max(1, bottom - top)
 
-                      const info = lanes[i] ?? { lane: 0, lanesInComp: 1 };
-                      const gap = 12;
-                      const left = `calc(${(info.lane / info.lanesInComp) * 100}% + ${info.lane * gap}px)`;
-                      const width = `calc(${100 / info.lanesInComp}% - ${((info.lanesInComp - 1) / info.lanesInComp) * gap}px)`;
+                      const info = lanes[i] ?? { lane: 0, lanesInComp: 1 }
+                      const gap = 12
+                      const left = `calc(${(info.lane / info.lanesInComp) * 100}% + ${info.lane * gap}px)`
+                      const width = `calc(${100 / info.lanesInComp}% - ${((info.lanesInComp - 1) / info.lanesInComp) * gap}px)`
 
-                      let bg = "bg-sky-500 text-neutral-900";
-                      let badge = "NO PRAZO";
-                      const nowMin = hhmmToMin(new Date().toTimeString().slice(0, 5));
+                      let bg = "bg-sky-500 text-neutral-900"
+                      let badge = "NO PRAZO"
+                      const nowMin = hhmmToMin(currentTime)
                       if (t.concluida) {
-                        bg = "bg-emerald-500";
-                        badge = "CONCLUÍDA";
+                        bg = "bg-emerald-500"
+                        badge = "CONCLUÍDA"
                       } else if (nowMin >= t.endMin) {
-                        bg = "bg-red-500";
-                        badge = "ATRASADA";
+                        bg = "bg-red-500"
+                        badge = "ATRASADA"
                       }
 
                       return (
@@ -458,11 +591,11 @@ export default function App() {
                             </span>
                           </div>
                         </div>
-                      );
+                      )
                     })}
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
         </div>
@@ -475,7 +608,7 @@ export default function App() {
           onCancel={() => setShowNew(false)}
           onSubmit={async (payload) => {
             try {
-              const seriesId = payload.recKind && payload.recKind !== "once" ? crypto.randomUUID() : undefined;
+              const seriesId = payload.recKind && payload.recKind !== "once" ? crypto.randomUUID() : undefined
               await addTaskSafe({
                 titulo: payload.titulo.trim() || "Demanda",
                 inicio: payload.inicio,
@@ -485,13 +618,12 @@ export default function App() {
                 operacao: payload.operacao,
                 ymd: selectedDate,
                 recKind: payload.recKind,
-                seriesId, // só entra se existir
-                workspaceId: ws,
-                createdAt: Date.now(),
-              } as any);
-              setShowNew(false);
+                weekDay: payload.weekDay,
+                seriesId,
+              } as any)
+              setShowNew(false)
             } catch (e: any) {
-              alert(`Não foi possível salvar a demanda.\n${String(e?.message || e)}`);
+              alert(`Não foi possível salvar a demanda.\n${String(e?.message || e)}`)
             }
           }}
         />
@@ -503,27 +635,27 @@ export default function App() {
           task={editing}
           onCancel={() => setEditing(null)}
           onDeleteOne={async () => {
-            await deleteTaskOne(editing.id, editing.ymd);
-            setEditing(null);
+            await deleteTaskOne(editing.id, editing.ymd)
+            setEditing(null)
           }}
           onDeleteAll={
             editing.seriesId
               ? async () => {
                   if (confirm("Excluir TODAS as ocorrências desta demanda recorrente?")) {
-                    await deleteAllOccurrences(editing.seriesId);
-                    setEditing(null);
+                    await deleteAllOccurrences(editing.seriesId)
+                    setEditing(null)
                   }
                 }
               : undefined
           }
           onSubmit={async (patch) => {
-            await updateTaskSafe(editing.id, editing.ymd, patch);
-            setEditing(null);
+            await updateTaskSafe(editing.id, editing.ymd, patch)
+            setEditing(null)
           }}
         />
       )}
     </div>
-  );
+  )
 }
 
 /* ===========================
@@ -535,18 +667,18 @@ function Kpi({
   value,
   color,
 }: {
-  label: string;
-  value: number;
-  color: "emerald" | "red" | "sky" | "slate";
+  label: string
+  value: number
+  color: "emerald" | "red" | "sky" | "slate"
 }) {
   const bar =
     color === "emerald"
       ? "bg-emerald-500"
       : color === "red"
-      ? "bg-red-500"
-      : color === "sky"
-      ? "bg-sky-500"
-      : "bg-slate-400";
+        ? "bg-red-500"
+        : color === "sky"
+          ? "bg-sky-500"
+          : "bg-slate-400"
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-lg relative overflow-hidden">
       <div className={`absolute inset-y-0 left-0 w-1.5 ${bar}`} />
@@ -556,7 +688,7 @@ function Kpi({
       </div>
       <div className="mt-2 text-3xl font-semibold">{value}</div>
     </div>
-  );
+  )
 }
 
 function VolumeCard({ title, rows }: { title: string; rows: [string, number][] }) {
@@ -573,15 +705,15 @@ function VolumeCard({ title, rows }: { title: string; rows: [string, number][] }
         ))}
       </div>
     </div>
-  );
+  )
 }
 
-function HourScale({ timeline }: { timeline: Timeline }) {
-  const ticks: string[] = [];
+function HourScale({ timeline, currentTime }: { timeline: Timeline; currentTime: string }) {
+  const ticks: string[] = []
   for (let m = timeline.startMin; m <= timeline.endMin; m += 30) {
-    const h = String(Math.floor(m / 60)).padStart(2, "0");
-    const min = String(m % 60).padStart(2, "0");
-    ticks.push(`${h}:${min}`);
+    const h = String(Math.floor(m / 60)).padStart(2, "0")
+    const min = String(m % 60).padStart(2, "0")
+    ticks.push(`${h}:${min}`)
   }
   return (
     <div className="relative select-none pr-2">
@@ -589,41 +721,42 @@ function HourScale({ timeline }: { timeline: Timeline }) {
       <div className="h-[860px] flex flex-col justify-between text-xs text-neutral-400">
         {ticks.map((t) => (
           <div key={t} className="relative flex items-center">
-            <span>{t}</span>
-            <div className={`absolute left-full ml-4 top-1/2 -translate-y-1/2 w-[9999px] h-px ${t.endsWith(":00") ? "bg-neutral-700" : "bg-neutral-800/50"}`} />
+            <span className={t === currentTime ? "text-yellow-400 font-bold" : ""}>{t}</span>
           </div>
         ))}
       </div>
     </div>
-  );
+  )
 }
 
 /* ---------- Modais ---------- */
 
 type ModalTaskInput = {
-  titulo: string;
-  responsavel: string;
-  operacao: string;
-  inicio: string;
-  fim: string;
-  recKind?: RecKind;
-};
+  titulo: string
+  responsavel: string
+  operacao: string
+  inicio: string
+  fim: string
+  recKind?: RecKind
+  weekDay?: number
+}
 
 function TaskModal({
   title,
   onCancel,
   onSubmit,
 }: {
-  title: string;
-  onCancel: () => void;
-  onSubmit: (t: ModalTaskInput) => Promise<void>;
+  title: string
+  onCancel: () => void
+  onSubmit: (t: ModalTaskInput) => Promise<void>
 }) {
-  const [titulo, setTitulo] = useState("");
-  const [responsavel, setResponsavel] = useState(RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(OPERACOES[0]);
-  const [inicio, setInicio] = useState("08:00");
-  const [fim, setFim] = useState("09:00");
-  const [recKind, setRecKind] = useState<RecKind>("once");
+  const [titulo, setTitulo] = useState("")
+  const [responsavel, setResponsavel] = useState(RESPONSAVEIS[0])
+  const [operacao, setOperacao] = useState(OPERACOES[0])
+  const [inicio, setInicio] = useState("08:00")
+  const [fim, setFim] = useState("09:00")
+  const [recKind, setRecKind] = useState<RecKind>("once")
+  const [weekDay, setWeekDay] = useState<number>(1) // Default to Monday
 
   return (
     <Modal onClose={onCancel}>
@@ -679,6 +812,23 @@ function TaskModal({
           </select>
         </label>
 
+        {recKind === "weekly" && (
+          <label className="text-sm md:col-span-2">
+            <span className="block mb-1 text-neutral-300">Dia da semana</span>
+            <select
+              value={weekDay}
+              onChange={(e) => setWeekDay(Number(e.target.value))}
+              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2"
+            >
+              {DAYS_OF_WEEK.map((day) => (
+                <option key={day.value} value={day.value}>
+                  {day.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <label className="text-sm">
           <span className="block mb-1 text-neutral-300">Hora início</span>
           <input
@@ -707,8 +857,8 @@ function TaskModal({
         <button
           onClick={async () => {
             if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) {
-              alert("Verifique os horários.");
-              return;
+              alert("Verifique os horários.")
+              return
             }
             await onSubmit({
               titulo: titulo.trim() || "Demanda",
@@ -717,7 +867,8 @@ function TaskModal({
               inicio,
               fim,
               recKind,
-            });
+              weekDay: recKind === "weekly" ? weekDay : undefined,
+            })
           }}
           className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
         >
@@ -725,7 +876,7 @@ function TaskModal({
         </button>
       </div>
     </Modal>
-  );
+  )
 }
 
 function EditModal({
@@ -735,18 +886,18 @@ function EditModal({
   onDeleteAll,
   onSubmit,
 }: {
-  task: Task;
-  onCancel: () => void;
-  onDeleteOne: () => Promise<void>;
-  onDeleteAll?: () => Promise<void>;
-  onSubmit: (patch: Partial<Task>) => Promise<void>;
+  task: Task
+  onCancel: () => void
+  onDeleteOne: () => Promise<void>
+  onDeleteAll?: () => Promise<void>
+  onSubmit: (patch: Partial<Task>) => Promise<void>
 }) {
-  const [titulo, setTitulo] = useState(task.titulo);
-  const [responsavel, setResponsavel] = useState(task.responsavel || RESPONSAVEIS[0]);
-  const [operacao, setOperacao] = useState(task.operacao || OPERACOES[0]);
-  const [inicio, setInicio] = useState(task.inicio);
-  const [fim, setFim] = useState(task.fim);
-  const [concluida, setConcluida] = useState(task.concluida);
+  const [titulo, setTitulo] = useState(task.titulo)
+  const [responsavel, setResponsavel] = useState(task.responsavel || RESPONSAVEIS[0])
+  const [operacao, setOperacao] = useState(task.operacao || OPERACOES[0])
+  const [inicio, setInicio] = useState(task.inicio)
+  const [fim, setFim] = useState(task.fim)
+  const [concluida, setConcluida] = useState(task.concluida)
 
   return (
     <Modal onClose={onCancel}>
@@ -796,8 +947,8 @@ function EditModal({
               task.recKind === "daily"
                 ? "todos os dias"
                 : task.recKind === "weekly"
-                ? "uma vez por semana"
-                : `apenas ${task.ymd}`
+                  ? `uma vez por semana${task.weekDay !== undefined ? ` (${DAYS_OF_WEEK[task.weekDay]?.label})` : ""}`
+                  : `apenas ${task.ymd}`
             }
             className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-neutral-500"
           />
@@ -851,8 +1002,8 @@ function EditModal({
           <button
             onClick={async () => {
               if (!isHHMM(inicio) || !isHHMM(fim) || hhmmToMin(fim) <= hhmmToMin(inicio)) {
-                alert("Verifique os horários.");
-                return;
+                alert("Verifique os horários.")
+                return
               }
               await onSubmit({
                 titulo: titulo.trim() || "Demanda",
@@ -861,7 +1012,7 @@ function EditModal({
                 responsavel,
                 operacao,
                 concluida,
-              });
+              })
             }}
             className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
           >
@@ -870,14 +1021,14 @@ function EditModal({
         </div>
       </div>
     </Modal>
-  );
+  )
 }
 
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-2xl shadow-xl">
+      <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-5 w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
         <button
           className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-200"
           onClick={onClose}
@@ -888,5 +1039,5 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
         {children}
       </div>
     </div>
-  );
+  )
 }
