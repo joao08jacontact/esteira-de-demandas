@@ -1,43 +1,36 @@
 // src/lib/firebase.ts
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, doc } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  collectionGroup,
+  doc,
+} from "firebase/firestore";
 
-/**
- * Lê as variáveis do ambiente (Vercel/Vite)
- */
+// Lê as envs definidas na Vercel
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
 };
 
-// Evita inicializar duas vezes em hot reload
+// Inicializa 1x (evita duplicidade no HMR)
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-
-// Firestore
 export const db = getFirestore(app);
 
-/**
- * Coleção de tasks por workspace + dia
- * Estrutura: workspaces/{ws}/days/{yyyy-mm-dd}/tasks/*
- */
-export function tasksCollection(workspaceId: string, ymd: string) {
-  const ws = doc(collection(db, "workspaces"), workspaceId);
-  const days = collection(ws, "days");
-  const dayDoc = doc(days, ymd);
-  return collection(dayDoc, "tasks");
-}
+// Caminhos helpers
+export const workspaceDoc = (ws: string) => doc(db, "workspaces", ws);
+export const dayDoc = (ws: string, ymd: string) =>
+  doc(db, "workspaces", ws, "days", ymd);
+export const tasksCollection = (ws: string, ymd: string) =>
+  collection(db, "workspaces", ws, "days", ymd, "tasks");
 
-/**
- * Documento onde guardamos configurações do workspace
- * (por ex.: lista de operações)
- * Caminho: workspaces/{ws}/meta/settings
- */
-export function workspaceSettingsRef(workspaceId: string) {
-  const ws = doc(collection(db, "workspaces"), workspaceId);
-  const meta = collection(ws, "meta");
-  return doc(meta, "settings");
-}
+// Settings (operações salvas)
+export const settingsDoc = (ws: string) =>
+  doc(db, "workspaces", ws, "meta", "settings");
+
+// Group query (todas as tasks de todos os dias)
+export const tasksCollectionGroup = () => collectionGroup(db, "tasks");
