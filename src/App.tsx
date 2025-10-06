@@ -67,29 +67,47 @@ type Timeline = {
    Utilitários
 =========================== */
 
+// Validador de HH:MM
+function isHHMM(v: any): v is string {
+  return typeof v === "string" && /^\d{2}:\d{2}$/.test(v);
+}
+
 function hhmmToMin(hhmm: string): number {
+  if (!isHHMM(hhmm)) return 0; // evita exception se vier dado ruim
   const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return 0;
   return h * 60 + m;
 }
+
 function fmtHM(hhmm: string) {
   return hhmm;
 }
+
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
+
 function buildTimeline(start: string, end: string): Timeline {
   const startMin = hhmmToMin(start);
   const endMin = hhmmToMin(end);
   return { startMin, endMin, totalMin: Math.max(1, endMin - startMin) };
 }
+
 function percentFromTime(hhmm: string, tl: Timeline): number {
-  const pos = hhmmToMin(hhmm) - tl.startMin;
+  const pos = (isHHMM(hhmm) ? hhmmToMin(hhmm) : tl.startMin) - tl.startMin;
   return clamp((pos / tl.totalMin) * 100, 0, 100);
 }
+
 function ymdToDate(ymd: string) {
+  // guarda contra valores quebrados (ex.: undefined)
+  if (typeof ymd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  }
   const [Y, M, D] = ymd.split("-").map(Number);
   return new Date(Y, (M || 1) - 1, D || 1, 0, 0, 0, 0);
 }
+
 function dateToYMD(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -185,13 +203,17 @@ function TaskStackVertical({
 }) {
   const gap = 10;
 
-  type Enriched = Task & { startMin: number; endMin: number; idx: number };
-  const enriched: Enriched[] = tasks.map((t, idx) => ({
-    ...t,
-    startMin: hhmmToMin(t.inicio),
-    endMin: hhmmToMin(t.fim),
-    idx,
+  // Garante que só entram tarefas com HH:MM válido
+const safeTasks = tasks.filter((t) => isHHMM(t.inicio) && isHHMM(t.fim));
+
+type Enriched = Task & { startMin: number; endMin: number; idx: number };
+const enriched: Enriched[] = safeTasks.map((t, idx) => ({
+  ...t,
+  startMin: hhmmToMin(t.inicio),
+  endMin: hhmmToMin(t.fim),
+  idx,
   }));
+
 
   const overlap = (a: Enriched, b: Enriched) =>
     a.startMin < b.endMin && b.startMin < a.endMin;
@@ -736,31 +758,43 @@ export default function App() {
   }, []);
 
   // Carrega/escuta tarefas do dia
-  useEffect(() => {
-    const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"));
-    return onSnapshot(qy, (snap) => {
-      const list: Task[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as any;
-        list.push({
-          id: d.id,
-          titulo: data.titulo,
-          inicio: data.inicio,
-          fim: data.fim,
-          concluida: data.concluida,
-          responsavel: data.responsavel,
-          operacao: data.operacao,
-          ymd: data.ymd,
-          seriesId: data.seriesId,
-          recKind: data.recKind,
-          workspaceId: data.workspaceId,
-          createdAt: data.createdAt,
-        });
-      });
-      setTasks(list);
-    });
-  }, [ws, selectedDate]);
+useEffect(() => {
+  const qy = query(tasksCollection(ws, selectedDate), orderBy("inicio"));
 
+  return onSnapshot(qy, (snap) => {
+    const list: Task[] = [];
+
+    snap.forEach((d) => {
+      const data = d.data() as any;
+
+      // valida horários (evita erro de 'split' e tela preta)
+      const ini = data?.inicio;
+      const fim = data?.fim;
+      if (!isHHMM(ini) || !isHHMM(fim)) {
+        console.warn("Ignorando tarefa com horários inválidos", d.id, data);
+        return;
+      }
+
+      list.push({
+        id: d.id,
+        titulo: String(data?.titulo ?? "Demanda"),
+        inicio: ini,
+        fim: fim,
+        concluida: Boolean(data?.concluida),
+        responsavel: String(data?.responsavel ?? ""),
+        operacao: String(data?.operacao ?? ""),
+        ymd: String(data?.ymd ?? selectedDate),
+        seriesId: data?.seriesId,
+        recKind: (data?.recKind ?? "once") as Task["recKind"],
+        workspaceId: String(data?.workspaceId ?? ws),
+        createdAt: Number(data?.createdAt ?? Date.now()),
+      });
+    });
+
+    setTasks(list);
+  });
+}, [ws, selectedDate]);
+  
   // Carrega configurações (operações)
   useEffect(() => {
     const unsub = onSnapshot(settingsDoc(ws), async (snap) => {
