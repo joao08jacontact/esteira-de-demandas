@@ -18,8 +18,3 @@ export const db = getFirestore(app);
 export function tasksCollection(workspaceId: string, ymd: string) {
   return collection(doc(collection(db, "workspaces"), workspaceId), "days", ymd, "tasks");
 }
-
-// Operações: workspaces/{ws}/operations/*
-export function operationsCollection(workspaceId: string) {
-  return collection(doc(collection(db, "workspaces"), workspaceId), "operations");
-}
