@@ -1,6 +1,5 @@
-// src/lib/firebase.ts
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, doc } from "firebase/firestore";
+import { initializeApp, getApps } from "firebase/app"
+import { getFirestore, collection, doc } from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -9,12 +8,12 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+}
 
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
+export const db = getFirestore(app)
 
 // Tarefas do dia: workspaces/{ws}/days/{ymd}/tasks/*
 export function tasksCollection(workspaceId: string, ymd: string) {
-  return collection(doc(collection(db, "workspaces"), workspaceId), "days", ymd, "tasks");
+  return collection(doc(collection(db, "workspaces"), workspaceId), "days", ymd, "tasks")
 }
