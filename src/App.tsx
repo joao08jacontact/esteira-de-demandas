@@ -16,6 +16,7 @@ import {
   where,
 } from "firebase/firestore"
 import { db, tasksCollection } from "./lib/firebase"
+import DashOnlyScreen from "./components/DashOnlyScreen"
 
 /* ===========================
    Tipos
@@ -91,6 +92,8 @@ function dateToYMD(d: Date) {
    App
 =========================== */
 export default function App() {
+  if (showDash) { return <DashOnlyScreen onClose={() => setShowDash(false)} /> }
+
   // workspace via ?ws=
   const params = new URLSearchParams(window.location.search)
   const ws = params.get("ws") || "demo"
@@ -106,20 +109,6 @@ export default function App() {
   const [showNew, setShowNew] = useState(false)
 
   const [showDash, setShowDash] = useState(false)
-
-// === Debug helpers v2 ===
-useEffect(() => {
-  const open = () => { console.log("[Dash] open()"); document.body.style.overflow = "hidden"; setShowDash(true); };
-  const close = () => { console.log("[Dash] close()"); document.body.style.overflow = ""; setShowDash(false); };
-  const toggle = () => { console.log("[Dash] toggle()"); setShowDash(v => { document.body.style.overflow = v ? "" : "hidden"; return !v; }); };
-  const get = () => { console.log("[Dash] get()", showDash); return showDash; };
-  Object.assign(window, { __openDash: open, __closeDash: close, __toggleDash: toggle, __getDashState: get });
-
-  if (showDash) document.body.style.overflow = "hidden"; else document.body.style.overflow = "";
-
-  return () => { document.body.style.overflow = ""; };
-}, [showDash]);
-
   const [editing, setEditing] = useState<Task | null>(null)
 
   /* ===========================
