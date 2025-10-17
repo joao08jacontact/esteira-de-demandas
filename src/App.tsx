@@ -360,7 +360,7 @@ export default function App() {
           </div>
 
             <button
-              onClick={() => setShowDash(true)} }
+              onClick={() => setShowDash(true)}
               className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 font-medium"
               title="Abrir dashboard de chamados em nova aba"
             >
