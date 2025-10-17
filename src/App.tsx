@@ -1,3 +1,4 @@
+import DashPanel from "./components/DashPanel"
 "use client"
 
 import type React from "react"
