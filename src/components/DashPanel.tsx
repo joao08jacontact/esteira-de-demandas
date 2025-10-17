@@ -1,24 +1,25 @@
 import React, { useEffect } from "react"
+import { createPortal } from "react-dom"
 
 type Props = {
   open: boolean
   onClose: () => void
 }
 
-export default function DashPanel({ open, onClose }: Props) {
+function Panel({ onClose }: { onClose: () => void }) {
   useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [open, onClose])
-
-  if (!open) return null
+    document.body.style.overflow = "hidden"
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = "" }
+  }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black">
+    <div
+      data-dash-panel
+      className="fixed inset-0 z-[2147483647] bg-black"
+      style={{ contain: "layout style", willChange: "transform" }}
+    >
       <div className="h-14 flex items-center justify-between px-4 border-b border-neutral-800 bg-neutral-950">
         <button
           onClick={onClose}
@@ -30,7 +31,6 @@ export default function DashPanel({ open, onClose }: Props) {
         <div className="text-sm text-neutral-400">DashRealtime</div>
         <div />
       </div>
-
       <iframe
         src="/dash/"
         className="w-full"
@@ -40,4 +40,11 @@ export default function DashPanel({ open, onClose }: Props) {
       />
     </div>
   )
+}
+
+export default function DashPanel({ open, onClose }: Props) {
+  if (!open) return null
+  const root = typeof document !== "undefined" ? document.body : null
+  if (!root) return null
+  return createPortal(<Panel onClose={onClose} />, root)
 }
