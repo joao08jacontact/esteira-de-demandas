@@ -16,7 +16,6 @@ import {
   where,
 } from "firebase/firestore"
 import { db, tasksCollection } from "./lib/firebase"
-import DashOnlyScreen from "./components/DashOnlyScreen"
 
 /* ===========================
    Tipos
@@ -92,8 +91,6 @@ function dateToYMD(d: Date) {
    App
 =========================== */
 export default function App() {
-  if (showDash) { return <DashOnlyScreen onClose={() => setShowDash(false)} /> }
-
   // workspace via ?ws=
   const params = new URLSearchParams(window.location.search)
   const ws = params.get("ws") || "demo"
