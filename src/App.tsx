@@ -1,4 +1,3 @@
-import DashPanel from "./components/DashPanel"
 "use client"
 
 import type React from "react"
@@ -104,8 +103,6 @@ export default function App() {
 
   // modais
   const [showNew, setShowNew] = useState(false)
-
-  const [showDash, setShowDash] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
 
   /* ===========================
@@ -359,16 +356,6 @@ export default function App() {
               + Nova demanda
             </button>
           </div>
-
-            <button
-              onClick={() => setShowDash(true)}
-              className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 font-medium"
-              title="Abrir dashboard de chamados em nova aba"
-            >
-              Controle Chamados
-            </button>
-
-
         </header>
 
         {/* Filtros */}
