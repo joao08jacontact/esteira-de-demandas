@@ -106,6 +106,31 @@ export default function App() {
   const [showNew, setShowNew] = useState(false)
 
   const [showDash, setShowDash] = useState(false)
+
+// === Debug helpers (safe to keep in dev/prod) ===
+useEffect(() => {
+  // Expose helpers to DevTools console
+  // window.__openDash() / window.__closeDash() / window.__toggleDash()
+  // and inspect state: window.__getDashState()
+  // Also, dispatch a custom event when panel changes
+  const open = () => setShowDash(true);
+  const close = () => setShowDash(false);
+  const toggle = () => setShowDash(v => !v);
+  const get = () => showDash;
+  Object.assign(window as any, { __openDash: open, __closeDash: close, __toggleDash: toggle, __getDashState: get });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.altKey && e.shiftKey && e.code === "KeyD") {
+      toggle();
+    }
+  });
+
+  return () => {
+    const anyWin = window as any;
+    delete anyWin.__openDash; delete anyWin.__closeDash; delete anyWin.__toggleDash; delete anyWin.__getDashState;
+  };
+}, [showDash, setShowDash]);
+
   const [editing, setEditing] = useState<Task | null>(null)
 
   /* ===========================
@@ -335,7 +360,7 @@ export default function App() {
           <h1 className="text-2xl md:text-3xl font-semibold">Esteira de Demandas</h1>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => shiftDate(-1)}
+              id="btn-controle-chamados" onClick={() => shiftDate(-1)}
               className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
             >
               ◀︎
