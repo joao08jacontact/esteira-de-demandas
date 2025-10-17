@@ -335,21 +335,38 @@ export default function App() {
           <h1 className="text-2xl md:text-3xl font-semibold">Esteira de Demandas</h1>
           <div className="flex items-center gap-2">
             <button
-  id="btn-controle-chamados"
-  type="button"
-  className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 font-medium pointer-events-auto"
-  onMouseDown={(e) => { e.stopPropagation(); }}
-  onClickCapture={(e) => { console.log("[ControleChamados] onClickCapture"); }}
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("[ControleChamados] onClick firing → setShowDash(true)");
-    setShowDash(true);
-  }}
-  title="Abrir painel de chamados"
->
-  Controle Chamados
-</button>
+              onClick={() => shiftDate(-1)}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
+            >
+              ◀︎
+            </button>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5"
+            />
+            <button
+              onClick={() => shiftDate(1)}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700"
+            >
+              ▶︎
+            </button>
+            <button
+              onClick={() => setShowNew(true)}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium"
+            >
+              + Nova demanda
+            </button>
+          </div>
+
+            <button
+              onClick={() => setShowDash(true)}
+              className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 font-medium"
+              title="Abrir dashboard de chamados em nova aba"
+            >
+              Controle Chamados
+            </button>
 
 
         </header>
