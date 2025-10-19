@@ -1,8 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { ticketService } from "./ticket-service";
-import { ticketFiltersSchema } from "@shared/schema";
+import { ticketFiltersSchema, insertBiSchema, updateBaseOrigemStatusSchema, updateBiInativoSchema } from "@shared/schema";
 import { getGlpiClient } from "./glpi-client";
+import { storage } from "./storage";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get categories from GLPI
@@ -185,6 +187,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to fetch ticket details",
         message: error.message 
       });
+    }
+  });
+
+  // ===========================
+  // BI Cadastro Routes
+  // ===========================
+
+  // Get all BIs with their bases
+  app.get("/api/bis", async (_req, res) => {
+    try {
+      const bis = await storage.getAllBis();
+      res.json(bis);
+    } catch (error) {
+      console.error("Error getting BIs:", error);
+      res.status(500).json({ error: "Failed to get BIs" });
+    }
+  });
+
+  // Get a single BI by ID
+  app.get("/api/bis/:id", async (req, res) => {
+    try {
+      const bi = await storage.getBiById(req.params.id);
+      if (!bi) {
+        return res.status(404).json({ error: "BI not found" });
+      }
+      res.json(bi);
+    } catch (error) {
+      console.error("Error getting BI:", error);
+      res.status(500).json({ error: "Failed to get BI" });
+    }
+  });
+
+  // Create a new BI with bases
+  app.post("/api/bis", async (req, res) => {
+    try {
+      const validationSchema = insertBiSchema.extend({
+        bases: z.array(
+          z.object({
+            nomeBase: z.string(),
+            temApi: z.boolean(),
+          })
+        ),
+      });
+
+      const data = validationSchema.parse(req.body);
+      const { bases, ...biData } = data;
+
+      const bi = await storage.createBi(biData, bases);
+      res.status(201).json(bi);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error creating BI:", error);
+      res.status(500).json({ error: "Failed to create BI" });
+    }
+  });
+
+  // Update BI inativo status
+  app.patch("/api/bis/:id/inativar", async (req, res) => {
+    try {
+      const data = updateBiInativoSchema.parse(req.body);
+      const bi = await storage.updateBiInativo(req.params.id, data.inativo);
+
+      if (!bi) {
+        return res.status(404).json({ error: "BI not found" });
+      }
+
+      res.json(bi);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error updating BI:", error);
+      res.status(500).json({ error: "Failed to update BI" });
+    }
+  });
+
+  // Update base status
+  app.patch("/api/bases/:id/status", async (req, res) => {
+    try {
+      const data = updateBaseOrigemStatusSchema.parse(req.body);
+      const base = await storage.updateBaseStatus(
+        req.params.id,
+        data.status,
+        data.observacao
+      );
+
+      if (!base) {
+        return res.status(404).json({ error: "Base not found" });
+      }
+
+      res.json(base);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error updating base status:", error);
+      res.status(500).json({ error: "Failed to update base status" });
+    }
+  });
+
+  // Get canvas data
+  app.get("/api/canvas", async (_req, res) => {
+    try {
+      const canvasData = await storage.getCanvasData();
+      res.json(canvasData);
+    } catch (error) {
+      console.error("Error getting canvas data:", error);
+      res.status(500).json({ error: "Failed to get canvas data" });
+    }
+  });
+
+  // Save canvas data
+  app.post("/api/canvas", async (req, res) => {
+    try {
+      const { nodes, edges } = req.body;
+
+      if (!Array.isArray(nodes) || !Array.isArray(edges)) {
+        return res.status(400).json({ error: "Invalid canvas data format" });
+      }
+
+      await storage.saveCanvasData(nodes, edges);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving canvas data:", error);
+      res.status(500).json({ error: "Failed to save canvas data" });
     }
   });
 
