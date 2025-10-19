@@ -304,3 +304,37 @@ export type CanvasEdge = typeof canvasEdges.$inferSelect;
 export type BiWithBases = Bi & {
   bases: BaseOrigem[];
 };
+
+// ===========================
+// Automação Module
+// ===========================
+
+// Constantes para recorrência
+export const RECORRENCIAS = [
+  "Uma vez",
+  "Diário",
+  "Semanal",
+  "Mensalmente",
+] as const;
+
+// Tabela de Automações
+export const automacoes = pgTable("automacoes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nomeIntegracao: text("nome_integracao").notNull(),
+  recorrencia: text("recorrencia").notNull(),
+  dataHora: text("data_hora").notNull(),
+  repetirUmaHora: boolean("repetir_uma_hora").notNull().default(false),
+  nomeExecutavel: text("nome_executavel").notNull(),
+  pastaFimAtualizacao: text("pasta_fim_atualizacao").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Insert Schema
+export const insertAutomacaoSchema = createInsertSchema(automacoes).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
+export type InsertAutomacao = z.infer<typeof insertAutomacaoSchema>;
+export type Automacao = typeof automacoes.$inferSelect;
