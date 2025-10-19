@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import EsteiraDemandas from "@/pages/esteira-demandas";
 import DashboardGlpi from "@/pages/dashboard-glpi";
+import BiCadastro from "@/pages/bi-cadastro";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
     <Switch>
       <Route path="/" component={EsteiraDemandas} />
       <Route path="/dashboard" component={DashboardGlpi} />
+      <Route path="/bi-cadastro" component={BiCadastro} />
       <Route component={NotFound} />
     </Switch>
   );
