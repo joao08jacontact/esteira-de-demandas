@@ -76,6 +76,19 @@ export function formatDuration(seconds: number): string {
   }
 }
 
+// Format seconds to HH:MM:SS
+export function formatSecondsToHHMMSS(seconds: number): string {
+  if (!seconds || seconds === 0) return "00:00:00";
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  return [hours, minutes, secs]
+    .map(val => String(val).padStart(2, '0'))
+    .join(':');
+}
+
 // GLPI status helpers
 export function getStatusColor(status: number): string {
   switch (status) {
