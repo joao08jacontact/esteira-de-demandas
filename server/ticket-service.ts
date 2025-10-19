@@ -9,7 +9,6 @@ class TicketService {
     // In production, this should use GLPI's search API properly
     const tickets = await glpiClient.getTickets({
       range: "0-999",
-      sort: "19", // Sort by date (desc)
     });
 
     console.log(`[DEBUG] GLPI returned ${tickets.length} tickets`);

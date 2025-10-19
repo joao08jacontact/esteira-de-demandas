@@ -79,15 +79,12 @@ export class GlpiClient {
 
   async getTickets(params: {
     range?: string;
-    sort?: string;
-    criteria?: any[];
   } = {}): Promise<any[]> {
     const sessionToken = await this.ensureSession();
     
     try {
       const queryParams = new URLSearchParams();
       if (params.range) queryParams.append("range", params.range);
-      if (params.sort) queryParams.append("sort", params.sort);
       
       let url = `/Ticket/?${queryParams.toString()}`;
       
