@@ -10,7 +10,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, BarChart3, Moon, Sun } from "lucide-react";
+import { Home, BarChart3, Database, Moon, Sun } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTheme } from "@/lib/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,11 @@ const menuItems = [
     title: "Dashboard GLPI",
     url: "/dashboard",
     icon: BarChart3,
+  },
+  {
+    title: "BI Cadastro",
+    url: "/bi-cadastro",
+    icon: Database,
   },
 ];
 
