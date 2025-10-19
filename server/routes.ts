@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { ticketService } from "./ticket-service";
-import { ticketFiltersSchema, insertBiSchema, updateBaseOrigemStatusSchema, updateBiInativoSchema } from "@shared/schema";
+import { ticketFiltersSchema, insertBiSchema, updateBaseOrigemStatusSchema, updateBiInativoSchema, insertAutomacaoSchema } from "@shared/schema";
 import { getGlpiClient } from "./glpi-client";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -315,6 +315,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error saving canvas data:", error);
       res.status(500).json({ error: "Failed to save canvas data" });
+    }
+  });
+
+  // ===========================
+  // Automacao Routes
+  // ===========================
+
+  // Get all automacoes
+  app.get("/api/automacoes", async (_req, res) => {
+    try {
+      const automacoes = await storage.getAllAutomacoes();
+      res.json(automacoes);
+    } catch (error) {
+      console.error("Error getting automacoes:", error);
+      res.status(500).json({ error: "Failed to get automacoes" });
+    }
+  });
+
+  // Get automacao by ID
+  app.get("/api/automacoes/:id", async (req, res) => {
+    try {
+      const automacao = await storage.getAutomacaoById(req.params.id);
+      if (!automacao) {
+        return res.status(404).json({ error: "Automacao not found" });
+      }
+      res.json(automacao);
+    } catch (error) {
+      console.error("Error getting automacao:", error);
+      res.status(500).json({ error: "Failed to get automacao" });
+    }
+  });
+
+  // Create a new automacao
+  app.post("/api/automacoes", async (req, res) => {
+    try {
+      const data = insertAutomacaoSchema.parse(req.body);
+      const automacao = await storage.createAutomacao(data);
+      res.status(201).json(automacao);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error creating automacao:", error);
+      res.status(500).json({ error: "Failed to create automacao" });
+    }
+  });
+
+  // Delete automacao
+  app.delete("/api/automacoes/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteAutomacao(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Automacao not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting automacao:", error);
+      res.status(500).json({ error: "Failed to delete automacao" });
     }
   });
 
