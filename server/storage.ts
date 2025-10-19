@@ -25,7 +25,7 @@ export interface IStorage {
   getBiById(id: string): Promise<BiWithBases | undefined>;
   createBi(
     bi: InsertBi,
-    bases: Array<{ nomeBase: string; temApi: boolean }>
+    bases: Array<{ nomeFerramenta: string; pastaOrigem: string; temApi: boolean }>
   ): Promise<Bi>;
   updateBiStatus(id: string, status: string): Promise<Bi | undefined>;
   updateBiInativo(id: string, inativo: boolean): Promise<Bi | undefined>;
@@ -104,7 +104,7 @@ export class MemStorage implements IStorage {
 
   async createBi(
     insertBi: InsertBi,
-    insertBases: Array<{ nomeBase: string; temApi: boolean }>
+    insertBases: Array<{ nomeFerramenta: string; pastaOrigem: string; temApi: boolean }>
   ): Promise<Bi> {
     const id = randomUUID();
     const bi: Bi = {
@@ -123,7 +123,8 @@ export class MemStorage implements IStorage {
       const base: BaseOrigem = {
         id: baseId,
         biId: id,
-        nomeBase: insertBase.nomeBase,
+        nomeFerramenta: insertBase.nomeFerramenta,
+        pastaOrigem: insertBase.pastaOrigem,
         temApi: insertBase.temApi,
         status: "aguardando",
         observacao: null,

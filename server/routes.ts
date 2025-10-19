@@ -225,7 +225,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validationSchema = insertBiSchema.extend({
         bases: z.array(
           z.object({
-            nomeBase: z.string(),
+            nomeFerramenta: z.string(),
+            pastaOrigem: z.string(),
             temApi: z.boolean(),
           })
         ),

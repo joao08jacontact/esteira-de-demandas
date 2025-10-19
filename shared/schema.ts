@@ -234,7 +234,8 @@ export const bis = pgTable("bis", {
 export const basesOrigem = pgTable("bases_origem", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   biId: varchar("bi_id").notNull(),
-  nomeBase: text("nome_base").notNull(),
+  nomeFerramenta: text("nome_ferramenta").notNull(),
+  pastaOrigem: text("pasta_origem").notNull(),
   temApi: boolean("tem_api").notNull().default(false),
   status: text("status").notNull().default("aguardando"), // aguardando, em_andamento, pendente, concluido
   observacao: text("observacao"),
