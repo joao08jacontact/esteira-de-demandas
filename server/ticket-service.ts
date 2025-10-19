@@ -12,6 +12,8 @@ class TicketService {
       sort: "19", // Sort by date (desc)
     });
 
+    console.log(`[DEBUG] GLPI returned ${tickets.length} tickets`);
+
     // Apply filters client-side
     let filteredTickets = tickets;
 

@@ -73,16 +73,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get full ticket details (for debugging/inspection)
-  app.get("/api/tickets/:id/full", async (req, res) => {
+  // Get ticket statistics (MUST come before /api/tickets to avoid route conflict)
+  app.get("/api/tickets/stats", async (req, res) => {
     try {
-      const glpiClient = getGlpiClient();
-      const ticket = await glpiClient.getTicket(parseInt(req.params.id));
-      res.json(ticket);
+      // Parse and validate filters with Zod
+      let rawFilters;
+      try {
+        rawFilters = {
+          search: req.query.search as string | undefined,
+          status: req.query.status ? JSON.parse(req.query.status as string) : undefined,
+          priority: req.query.priority ? JSON.parse(req.query.priority as string) : undefined,
+          category: req.query.category ? JSON.parse(req.query.category as string) : undefined,
+          type: req.query.type ? JSON.parse(req.query.type as string) : undefined,
+          dateFrom: req.query.dateFrom as string | undefined,
+          dateTo: req.query.dateTo as string | undefined,
+          assignedTo: req.query.assignedTo ? JSON.parse(req.query.assignedTo as string) : undefined,
+          assignedGroup: req.query.assignedGroup ? JSON.parse(req.query.assignedGroup as string) : undefined,
+        };
+      } catch (parseError) {
+        return res.status(400).json({
+          error: "Malformed filter parameters",
+          message: "Failed to parse JSON in filter parameters",
+        });
+      }
+
+      const validationResult = ticketFiltersSchema.safeParse(rawFilters);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: "Invalid filters",
+          details: validationResult.error.errors,
+        });
+      }
+
+      const stats = await ticketService.getStats(validationResult.data);
+      res.json(stats);
     } catch (error: any) {
-      console.error("Error fetching full ticket:", error);
+      console.error("Error fetching stats:", error);
       res.status(500).json({ 
-        error: "Failed to fetch ticket details",
+        error: "Failed to fetch statistics",
         message: error.message 
       });
     }
@@ -125,6 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const tickets = await ticketService.getTickets(validationResult.data, page, limit);
+      console.log(`[DEBUG] Returning ${tickets.length} tickets for page ${page}`);
       res.json(tickets);
     } catch (error: any) {
       console.error("Error fetching tickets:", error);
@@ -135,45 +165,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get ticket statistics
-  app.get("/api/tickets/stats", async (req, res) => {
+  // Get full ticket details (for debugging/inspection)
+  app.get("/api/tickets/:id/full", async (req, res) => {
     try {
-      // Parse and validate filters with Zod
-      let rawFilters;
-      try {
-        rawFilters = {
-          search: req.query.search as string | undefined,
-          status: req.query.status ? JSON.parse(req.query.status as string) : undefined,
-          priority: req.query.priority ? JSON.parse(req.query.priority as string) : undefined,
-          category: req.query.category ? JSON.parse(req.query.category as string) : undefined,
-          type: req.query.type ? JSON.parse(req.query.type as string) : undefined,
-          dateFrom: req.query.dateFrom as string | undefined,
-          dateTo: req.query.dateTo as string | undefined,
-          assignedTo: req.query.assignedTo ? JSON.parse(req.query.assignedTo as string) : undefined,
-          assignedGroup: req.query.assignedGroup ? JSON.parse(req.query.assignedGroup as string) : undefined,
-        };
-      } catch (parseError) {
-        return res.status(400).json({
-          error: "Malformed filter parameters",
-          message: "Failed to parse JSON in filter parameters",
-        });
-      }
-
-      const validationResult = ticketFiltersSchema.safeParse(rawFilters);
-      
-      if (!validationResult.success) {
-        return res.status(400).json({
-          error: "Invalid filters",
-          details: validationResult.error.errors,
-        });
-      }
-
-      const stats = await ticketService.getStats(validationResult.data);
-      res.json(stats);
+      const glpiClient = getGlpiClient();
+      const ticket = await glpiClient.getTicket(parseInt(req.params.id));
+      res.json(ticket);
     } catch (error: any) {
-      console.error("Error fetching stats:", error);
+      console.error("Error fetching full ticket:", error);
       res.status(500).json({ 
-        error: "Failed to fetch statistics",
+        error: "Failed to fetch ticket details",
         message: error.message 
       });
     }

@@ -42,7 +42,7 @@ export default function DashboardGlpi() {
     isFetching: isFetchingTickets,
     error: ticketsError,
   } = useQuery<GlpiTicket[]>({
-    queryKey: ["/api/tickets", buildQueryString(filters, currentPage)],
+    queryKey: [`/api/tickets?${buildQueryString(filters, currentPage)}`],
     refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL : false,
     refetchOnWindowFocus: true,
     retry: 2,
@@ -55,7 +55,7 @@ export default function DashboardGlpi() {
     refetch: refetchStats,
     error: statsError,
   } = useQuery<TicketStats>({
-    queryKey: ["/api/tickets/stats", buildQueryString(filters)],
+    queryKey: [`/api/tickets/stats?${buildQueryString(filters)}`],
     refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL : false,
     refetchOnWindowFocus: true,
     retry: 2,
