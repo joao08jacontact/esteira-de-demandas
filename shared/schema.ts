@@ -212,3 +212,94 @@ export const GLPI_TYPE = {
   1: "Incidente",
   2: "Requisição",
 } as const;
+
+// ===========================
+// BI Cadastro Module
+// ===========================
+
+// Tabela de BIs
+export const bis = pgTable("bis", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nome: text("nome").notNull(),
+  dataInicio: text("data_inicio").notNull(),
+  dataFinal: text("data_final").notNull(),
+  responsavel: text("responsavel").notNull(),
+  operacao: text("operacao").notNull(),
+  status: text("status").notNull().default("em_aberto"), // em_aberto, concluido
+  inativo: boolean("inativo").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Tabela de Bases de Origem
+export const basesOrigem = pgTable("bases_origem", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  biId: varchar("bi_id").notNull(),
+  nomeBase: text("nome_base").notNull(),
+  temApi: boolean("tem_api").notNull().default(false),
+  status: text("status").notNull().default("aguardando"), // aguardando, em_andamento, pendente, concluido
+  observacao: text("observacao"),
+});
+
+// Tabela de Elementos do Canvas (Nodes)
+export const canvasNodes = pgTable("canvas_nodes", {
+  id: varchar("id").primaryKey(),
+  type: text("type").notNull().default("default"),
+  positionX: text("position_x").notNull(),
+  positionY: text("position_y").notNull(),
+  data: text("data").notNull(), // JSON string com {label, content, nodeType}
+  width: text("width"),
+  height: text("height"),
+});
+
+// Tabela de Conexões do Canvas (Edges)
+export const canvasEdges = pgTable("canvas_edges", {
+  id: varchar("id").primaryKey(),
+  source: text("source").notNull(),
+  target: text("target").notNull(),
+  type: text("type").notNull().default("smoothstep"),
+  animated: boolean("animated").notNull().default(false),
+});
+
+// Insert Schemas
+export const insertBiSchema = createInsertSchema(bis).omit({
+  id: true,
+  status: true,
+  inativo: true,
+  createdAt: true,
+});
+
+export const insertBaseOrigemSchema = createInsertSchema(basesOrigem).omit({
+  id: true,
+});
+
+export const insertCanvasNodeSchema = createInsertSchema(canvasNodes);
+
+export const insertCanvasEdgeSchema = createInsertSchema(canvasEdges);
+
+// Update Schemas
+export const updateBaseOrigemStatusSchema = z.object({
+  status: z.enum(["aguardando", "em_andamento", "pendente", "concluido"]),
+  observacao: z.string().optional(),
+});
+
+export const updateBiInativoSchema = z.object({
+  inativo: z.boolean(),
+});
+
+// Types
+export type InsertBi = z.infer<typeof insertBiSchema>;
+export type Bi = typeof bis.$inferSelect;
+
+export type InsertBaseOrigem = z.infer<typeof insertBaseOrigemSchema>;
+export type BaseOrigem = typeof basesOrigem.$inferSelect;
+
+export type InsertCanvasNode = z.infer<typeof insertCanvasNodeSchema>;
+export type CanvasNode = typeof canvasNodes.$inferSelect;
+
+export type InsertCanvasEdge = z.infer<typeof insertCanvasEdgeSchema>;
+export type CanvasEdge = typeof canvasEdges.$inferSelect;
+
+// Extended Types for Frontend
+export type BiWithBases = Bi & {
+  bases: BaseOrigem[];
+};
