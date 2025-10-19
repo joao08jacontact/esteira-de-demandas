@@ -9,6 +9,8 @@ import {
   type CanvasEdge,
   type InsertCanvasEdge,
   type BiWithBases,
+  type Automacao,
+  type InsertAutomacao,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -44,6 +46,12 @@ export interface IStorage {
     nodes: InsertCanvasNode[],
     edges: InsertCanvasEdge[]
   ): Promise<void>;
+
+  // Automacao operations
+  getAllAutomacoes(): Promise<Automacao[]>;
+  getAutomacaoById(id: string): Promise<Automacao | undefined>;
+  createAutomacao(automacao: InsertAutomacao): Promise<Automacao>;
+  deleteAutomacao(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -52,6 +60,7 @@ export class MemStorage implements IStorage {
   private bases: Map<string, BaseOrigem>;
   private canvasNodes: Map<string, CanvasNode>;
   private canvasEdges: Map<string, CanvasEdge>;
+  private automacoes: Map<string, Automacao>;
 
   constructor() {
     this.users = new Map();
@@ -59,6 +68,7 @@ export class MemStorage implements IStorage {
     this.bases = new Map();
     this.canvasNodes = new Map();
     this.canvasEdges = new Map();
+    this.automacoes = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -227,6 +237,37 @@ export class MemStorage implements IStorage {
       };
       this.canvasEdges.set(edge.id, canvasEdge);
     }
+  }
+
+  // Automacao operations
+  async getAllAutomacoes(): Promise<Automacao[]> {
+    return Array.from(this.automacoes.values()).sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }
+
+  async getAutomacaoById(id: string): Promise<Automacao | undefined> {
+    return this.automacoes.get(id);
+  }
+
+  async createAutomacao(insertAutomacao: InsertAutomacao): Promise<Automacao> {
+    const id = randomUUID();
+    const automacao: Automacao = {
+      id,
+      nomeIntegracao: insertAutomacao.nomeIntegracao,
+      recorrencia: insertAutomacao.recorrencia,
+      dataHora: insertAutomacao.dataHora,
+      repetirUmaHora: insertAutomacao.repetirUmaHora ?? false,
+      nomeExecutavel: insertAutomacao.nomeExecutavel,
+      pastaFimAtualizacao: insertAutomacao.pastaFimAtualizacao,
+      createdAt: new Date(),
+    };
+    this.automacoes.set(id, automacao);
+    return automacao;
+  }
+
+  async deleteAutomacao(id: string): Promise<boolean> {
+    return this.automacoes.delete(id);
   }
 }
 
