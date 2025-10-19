@@ -87,8 +87,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: req.query.type ? JSON.parse(req.query.type as string) : undefined,
           dateFrom: req.query.dateFrom as string | undefined,
           dateTo: req.query.dateTo as string | undefined,
+          closeDateFrom: req.query.closeDateFrom as string | undefined,
+          closeDateTo: req.query.closeDateTo as string | undefined,
           assignedTo: req.query.assignedTo ? JSON.parse(req.query.assignedTo as string) : undefined,
           assignedGroup: req.query.assignedGroup ? JSON.parse(req.query.assignedGroup as string) : undefined,
+          name: req.query.name as string | undefined,
+          users_id_recipient: req.query.users_id_recipient ? JSON.parse(req.query.users_id_recipient as string) : undefined,
         };
       } catch (parseError) {
         return res.status(400).json({
@@ -134,8 +138,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: req.query.type ? JSON.parse(req.query.type as string) : undefined,
           dateFrom: req.query.dateFrom as string | undefined,
           dateTo: req.query.dateTo as string | undefined,
+          closeDateFrom: req.query.closeDateFrom as string | undefined,
+          closeDateTo: req.query.closeDateTo as string | undefined,
           assignedTo: req.query.assignedTo ? JSON.parse(req.query.assignedTo as string) : undefined,
           assignedGroup: req.query.assignedGroup ? JSON.parse(req.query.assignedGroup as string) : undefined,
+          name: req.query.name as string | undefined,
+          users_id_recipient: req.query.users_id_recipient ? JSON.parse(req.query.users_id_recipient as string) : undefined,
         };
       } catch (parseError) {
         return res.status(400).json({

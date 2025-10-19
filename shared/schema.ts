@@ -122,9 +122,13 @@ export const ticketFiltersSchema = z.object({
   search: z.string().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
+  closeDateFrom: z.string().optional(),
+  closeDateTo: z.string().optional(),
   type: z.array(z.number()).optional(),
   assignedTo: z.array(z.number()).optional(),
   assignedGroup: z.array(z.number()).optional(),
+  name: z.string().optional(),
+  users_id_recipient: z.array(z.number()).optional(),
 });
 
 export type TicketFilters = z.infer<typeof ticketFiltersSchema>;
@@ -138,11 +142,11 @@ export const ticketStatsSchema = z.object({
   solved: z.number(),
   closed: z.number(),
   
-  // Time-based metrics
-  avgResolutionTime: z.number().optional(),
-  avgFirstResponseTime: z.number().optional(),
-  avgWaitingTime: z.number().optional(),
-  ticketsInWaiting: z.number().optional(),
+  // Time-based metrics (all in seconds, to be formatted as HH:MM:SS on frontend)
+  avgCloseDelay: z.number().optional(),
+  avgSolveDelay: z.number().optional(),
+  avgTakeIntoAccountDelay: z.number().optional(),
+  avgWaitingDuration: z.number().optional(),
   
   // SLA metrics
   slaCompliance: z.number().optional(),
@@ -160,29 +164,24 @@ export const ticketStatsSchema = z.object({
     type: z.number(),
     count: z.number(),
   })),
-  byAssignee: z.array(z.object({
+  byCategory: z.array(z.object({
+    categoryId: z.number(),
+    categoryName: z.string(),
+    count: z.number(),
+  })).optional(),
+  topRequesters: z.array(z.object({
     userId: z.number(),
     userName: z.string(),
-    count: z.number(),
-  })).optional(),
-  byGroup: z.array(z.object({
-    groupId: z.number(),
-    groupName: z.string(),
-    count: z.number(),
-  })).optional(),
-  resolutionTimeDistribution: z.array(z.object({
-    range: z.string(),
     count: z.number(),
   })).optional(),
   timeline: z.array(z.object({
     date: z.string(),
     count: z.number(),
   })),
-  weeklyTimeline: z.array(z.object({
-    weekLabel: z.string(),
-    startDate: z.string(),
-    endDate: z.string(),
-    count: z.number(),
+  timelineComparison: z.array(z.object({
+    date: z.string(),
+    opened: z.number(),
+    closed: z.number(),
   })).optional(),
 });
 
