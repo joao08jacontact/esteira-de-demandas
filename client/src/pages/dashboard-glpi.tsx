@@ -29,6 +29,10 @@ export default function DashboardGlpi() {
     if (filters.type) params.append("type", JSON.stringify(filters.type));
     if (filters.dateFrom) params.append("dateFrom", filters.dateFrom);
     if (filters.dateTo) params.append("dateTo", filters.dateTo);
+    if (filters.closeDateFrom) params.append("closeDateFrom", filters.closeDateFrom);
+    if (filters.closeDateTo) params.append("closeDateTo", filters.closeDateTo);
+    if (filters.name) params.append("name", filters.name);
+    if (filters.users_id_recipient) params.append("users_id_recipient", JSON.stringify(filters.users_id_recipient));
     if (page) params.append("page", page.toString());
     params.append("limit", ITEMS_PER_PAGE.toString());
     return params.toString();
@@ -91,6 +95,10 @@ export default function DashboardGlpi() {
     filters.type?.length,
     filters.dateFrom,
     filters.dateTo,
+    filters.closeDateFrom,
+    filters.closeDateTo,
+    filters.name,
+    filters.users_id_recipient?.length,
   ].filter(Boolean).length;
 
   // Calculate total pages
