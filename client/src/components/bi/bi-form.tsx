@@ -30,7 +30,8 @@ const biFormSchema = z.object({
   responsavel: z.string().min(1, "Responsável é obrigatório"),
   operacao: z.string().min(1, "Operação é obrigatória"),
   bases: z.array(z.object({
-    nomeBase: z.string().min(1, "Nome da base é obrigatório"),
+    nomeFerramenta: z.string().min(1, "Nome da ferramenta é obrigatório"),
+    pastaOrigem: z.string().min(1, "Pasta origem é obrigatória"),
     temApi: z.boolean(),
   })).min(1, "Adicione pelo menos uma base de origem"),
 });
@@ -58,16 +59,16 @@ export function BiForm() {
       nome: "",
       dataInicio: "",
       dataFinal: "",
-      responsavel: "",
+      responsavel: "João Vinicius",
       operacao: "",
-      bases: [{ nomeBase: "", temApi: false }],
+      bases: [{ nomeFerramenta: "", pastaOrigem: "", temApi: false }],
     },
   });
 
   const bases = watch("bases");
 
   const addBase = () => {
-    setValue("bases", [...bases, { nomeBase: "", temApi: false }]);
+    setValue("bases", [...bases, { nomeFerramenta: "", pastaOrigem: "", temApi: false }]);
   };
 
   const removeBase = (index: number) => {
@@ -84,8 +85,14 @@ export function BiForm() {
         title: "BI cadastrado com sucesso!",
         description: `${data.nome} foi adicionado à lista de BIs em aberto.`,
       });
-      reset();
-      setValue("bases", [{ nomeBase: "", temApi: false }]);
+      reset({
+        nome: "",
+        dataInicio: "",
+        dataFinal: "",
+        responsavel: "João Vinicius",
+        operacao: "",
+        bases: [{ nomeFerramenta: "", pastaOrigem: "", temApi: false }],
+      });
       setDataInicio(undefined);
       setDataFinal(undefined);
       queryClient.invalidateQueries({ queryKey: ["/api/bis"] });
@@ -209,6 +216,7 @@ export function BiForm() {
                 <SelectValue placeholder="Selecione o responsável" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="João Vinicius">João Vinicius</SelectItem>
                 {RESPONSAVEIS.map((resp) => (
                   <SelectItem key={resp} value={resp}>
                     {resp}
@@ -266,9 +274,14 @@ export function BiForm() {
                 <div key={index} className="flex gap-2 items-start">
                   <div className="flex-1 space-y-2">
                     <Input
-                      {...register(`bases.${index}.nomeBase`)}
-                      placeholder="Nome da base"
-                      data-testid={`input-base-${index}`}
+                      {...register(`bases.${index}.nomeFerramenta`)}
+                      placeholder="Nome da Ferramenta"
+                      data-testid={`input-ferramenta-${index}`}
+                    />
+                    <Input
+                      {...register(`bases.${index}.pastaOrigem`)}
+                      placeholder="Pasta Origem"
+                      data-testid={`input-pasta-${index}`}
                     />
                     <div className="flex items-center space-x-2">
                       <Checkbox
