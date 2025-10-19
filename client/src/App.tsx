@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import EsteiraDemandas from "@/pages/esteira-demandas";
 import DashboardGlpi from "@/pages/dashboard-glpi";
 import BiCadastro from "@/pages/bi-cadastro";
+import Automacao from "@/pages/automacao";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/" component={EsteiraDemandas} />
       <Route path="/dashboard" component={DashboardGlpi} />
       <Route path="/bi-cadastro" component={BiCadastro} />
+      <Route path="/automacao" component={Automacao} />
       <Route component={NotFound} />
     </Switch>
   );
