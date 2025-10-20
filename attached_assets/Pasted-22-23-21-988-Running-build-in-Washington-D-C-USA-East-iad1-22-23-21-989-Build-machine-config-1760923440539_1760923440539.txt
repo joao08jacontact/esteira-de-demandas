@@ -1,0 +1,43 @@
+22:23:21.988 Running build in Washington, D.C., USA (East) – iad1
+22:23:21.989 Build machine configuration: 2 cores, 8 GB
+22:23:22.145 Cloning github.com/joao08jacontact/esteira-de-demandas (Branch: main, Commit: 3a8f0dd)
+22:23:23.455 Cloning completed: 1.308s
+22:23:23.543 Restored build cache from previous deployment (AQYr5TXepoDnepoh84SQkpTFq8c4)
+22:23:23.916 Running "vercel build"
+22:23:24.302 Vercel CLI 48.2.9
+22:23:24.885 Running "install" command: `npm install`...
+22:23:28.914 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+22:23:28.990 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+22:23:38.862 
+22:23:38.863 added 331 packages, removed 3 packages, changed 84 packages, and audited 588 packages in 14s
+22:23:38.863 
+22:23:38.863 65 packages are looking for funding
+22:23:38.863   run `npm fund` for details
+22:23:38.888 
+22:23:38.889 8 vulnerabilities (3 low, 5 moderate)
+22:23:38.889 
+22:23:38.890 To address issues that do not require attention, run:
+22:23:38.890   npm audit fix
+22:23:38.890 
+22:23:38.890 To address all issues (including breaking changes), run:
+22:23:38.890   npm audit fix --force
+22:23:38.891 
+22:23:38.891 Run `npm audit` for details.
+22:23:39.426 [36mvite v5.4.20 [32mbuilding for production...[36m[39m
+22:23:39.476 transforming...
+22:23:39.486 [32m✓[39m 2 modules transformed.
+22:23:39.492 [31mx[39m Build failed in 43ms
+22:23:39.492 [31merror during build:
+22:23:39.493 [31m[vite]: Rollup failed to resolve import "/src/main.tsx" from "/vercel/path0/client/index.html".
+22:23:39.493 This is most likely unintended because it can break your application at runtime.
+22:23:39.493 If you do want to externalize this module explicitly add it to
+22:23:39.493 `build.rollupOptions.external`[31m
+22:23:39.493     at viteWarn (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:65854:17)
+22:23:39.493     at onwarn (file:///vercel/path0/node_modules/@vitejs/plugin-react/dist/index.js:90:7)
+22:23:39.494     at onRollupWarning (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:65884:5)
+22:23:39.494     at onwarn (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:65549:7)
+22:23:39.494     at file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:19452:13
+22:23:39.494     at Object.logger [as onLog] (file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:21178:9)
+22:23:39.494     at ModuleLoader.handleInvalidResolvedId (file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:20067:26)
+22:23:39.494     at file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:20025:26[39m
+22:23:39.502 Error: Command "vite build --config vite.config.vercel.ts && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist" exited with 1
