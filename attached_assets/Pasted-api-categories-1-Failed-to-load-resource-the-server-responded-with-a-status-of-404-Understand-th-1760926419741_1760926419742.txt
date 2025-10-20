@@ -1,0 +1,60 @@
+api/categories:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+api/users:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+tickets?page=1&limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+stats?limit=20:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+index-BczClERE.js:48  GET https://esteira-de-demandas.vercel.app/api/tickets?page=1&limit=20 404 (Not Found)
+(anonymous) @ index-BczClERE.js:48
+a @ index-BczClERE.js:48
+g @ index-BczClERE.js:48
+(anonymous) @ index-BczClERE.js:48Understand this error
+index-BczClERE.js:48  GET https://esteira-de-demandas.vercel.app/api/tickets/stats?limit=20 404 (Not Found)
