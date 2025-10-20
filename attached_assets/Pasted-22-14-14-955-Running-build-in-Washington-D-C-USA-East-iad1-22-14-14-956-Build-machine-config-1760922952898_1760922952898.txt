@@ -1,0 +1,38 @@
+22:14:14.955 Running build in Washington, D.C., USA (East) – iad1
+22:14:14.956 Build machine configuration: 2 cores, 8 GB
+22:14:14.972 Cloning github.com/joao08jacontact/esteira-de-demandas (Branch: main, Commit: 481ad22)
+22:14:14.992 Skipping build cache, deployment was triggered without cache.
+22:14:15.770 Cloning completed: 797.000ms
+22:14:16.087 Running "vercel build"
+22:14:16.541 Vercel CLI 48.2.9
+22:14:17.410 Installing dependencies...
+22:14:23.659 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+22:14:23.742 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+22:14:32.377 
+22:14:32.377 added 587 packages in 15s
+22:14:32.378 
+22:14:32.378 65 packages are looking for funding
+22:14:32.378   run `npm fund` for details
+22:14:32.444 Running "npm run build"
+22:14:32.560 
+22:14:32.561 > rest-express@1.0.0 build
+22:14:32.561 > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+22:14:32.561 
+22:14:33.580 [36mvite v5.4.20 [32mbuilding for production...[36m[39m
+22:14:33.630 transforming...
+22:14:33.641 [32m✓[39m 2 modules transformed.
+22:14:33.647 [31mx[39m Build failed in 43ms
+22:14:33.647 [31merror during build:
+22:14:33.648 [31m[vite]: Rollup failed to resolve import "/src/main.tsx" from "/vercel/path0/client/index.html".
+22:14:33.648 This is most likely unintended because it can break your application at runtime.
+22:14:33.648 If you do want to externalize this module explicitly add it to
+22:14:33.648 `build.rollupOptions.external`[31m
+22:14:33.648     at viteWarn (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:65854:17)
+22:14:33.648     at onwarn (file:///vercel/path0/node_modules/@vitejs/plugin-react/dist/index.js:90:7)
+22:14:33.649     at onRollupWarning (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:65884:5)
+22:14:33.649     at onwarn (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:65549:7)
+22:14:33.649     at file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:19452:13
+22:14:33.649     at Object.logger [as onLog] (file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:21178:9)
+22:14:33.649     at ModuleLoader.handleInvalidResolvedId (file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:20067:26)
+22:14:33.649     at file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:20025:26[39m
+22:14:33.665 Error: Command "npm run build" exited with 1
