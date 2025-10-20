@@ -75,7 +75,7 @@ export function ChartsSection({ stats, isLoading }: ChartsSectionProps) {
 
   if (!stats) return null;
 
-  const statusData = stats.byStatus
+  const statusData = (stats.byStatus || [])
     .map((item) => ({
       name: GLPI_STATUS[item.status as keyof typeof GLPI_STATUS] || `Status ${item.status}`,
       value: item.count,
@@ -83,7 +83,7 @@ export function ChartsSection({ stats, isLoading }: ChartsSectionProps) {
     }))
     .filter((item) => item.value > 0);
 
-  const priorityData = stats.byPriority
+  const priorityData = (stats.byPriority || [])
     .map((item) => ({
       name: GLPI_PRIORITY[item.priority as keyof typeof GLPI_PRIORITY] || `Prioridade ${item.priority}`,
       value: item.count,
