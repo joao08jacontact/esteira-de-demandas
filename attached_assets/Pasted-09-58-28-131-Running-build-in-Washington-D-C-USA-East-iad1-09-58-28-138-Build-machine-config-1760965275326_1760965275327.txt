@@ -1,0 +1,69 @@
+09:58:28.131 Running build in Washington, D.C., USA (East) – iad1
+09:58:28.138 Build machine configuration: 2 cores, 8 GB
+09:58:28.229 Cloning github.com/joao08jacontact/esteira-de-demandas (Branch: main, Commit: 198fa0b)
+09:58:28.408 Skipping build cache, deployment was triggered without cache.
+09:58:29.501 Cloning completed: 1.272s
+09:58:30.144 Running "vercel build"
+09:58:30.547 Vercel CLI 48.2.9
+09:58:31.298 Running "install" command: `npm install`...
+09:58:36.882 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+09:58:36.934 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+09:58:47.003 
+09:58:47.003 added 674 packages, and audited 675 packages in 15s
+09:58:47.004 
+09:58:47.004 70 packages are looking for funding
+09:58:47.004   run `npm fund` for details
+09:58:47.036 
+09:58:47.037 11 vulnerabilities (3 low, 6 moderate, 2 high)
+09:58:47.038 
+09:58:47.038 To address issues that do not require attention, run:
+09:58:47.038   npm audit fix
+09:58:47.039 
+09:58:47.039 To address all issues (including breaking changes), run:
+09:58:47.039   npm audit fix --force
+09:58:47.039 
+09:58:47.039 Run `npm audit` for details.
+09:58:47.496 [36mvite v5.4.20 [32mbuilding for production...[36m[39m
+09:58:47.595 transforming...
+09:58:47.834 Browserslist: browsers data (caniuse-lite) is 12 months old. Please run:
+09:58:47.834   npx update-browserslist-db@latest
+09:58:47.835   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+09:58:48.907 
+09:58:48.907 A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+09:58:59.210 [32m✓[39m 3617 modules transformed.
+09:59:00.266 rendering chunks...
+09:59:00.290 computing gzip size...
+09:59:00.332 [2m../dist/public/[22m[32mindex.html                 [39m[1m[2m    0.84 kB[22m[1m[22m[2m │ gzip:   0.47 kB[22m
+09:59:00.333 [2m../dist/public/[22m[2massets/[22m[35mindex-UnWRjUJn.css  [39m[1m[2m   90.52 kB[22m[1m[22m[2m │ gzip:  14.58 kB[22m
+09:59:00.334 [2m../dist/public/[22m[2massets/[22m[36mindex-Dmk8snY7.js   [39m[1m[33m1,534.58 kB[39m[22m[2m │ gzip: 435.59 kB[22m
+09:59:00.341 [33m
+09:59:00.341 (!) Some chunks are larger than 500 kB after minification. Consider:
+09:59:00.342 - Using dynamic import() to code-split the application
+09:59:00.342 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+09:59:00.342 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+09:59:00.345 [32m✓ built in 12.81s[39m
+09:59:00.399 
+09:59:00.399   dist/index.js  42.4kb
+09:59:00.399 
+09:59:00.400 ⚡ Done in 8ms
+09:59:00.442 Installing dependencies...
+09:59:01.462 
+09:59:01.463 up to date in 957ms
+09:59:01.464 
+09:59:01.464 70 packages are looking for funding
+09:59:01.464   run `npm fund` for details
+09:59:01.699 Using TypeScript 5.6.3 (local user-provided)
+09:59:05.883 Using TypeScript 5.6.3 (local user-provided)
+09:59:06.586 Using TypeScript 5.6.3 (local user-provided)
+09:59:06.875 Using TypeScript 5.6.3 (local user-provided)
+09:59:07.157 Using TypeScript 5.6.3 (local user-provided)
+09:59:07.425 Using TypeScript 5.6.3 (local user-provided)
+09:59:07.696 Using TypeScript 5.6.3 (local user-provided)
+09:59:07.965 Using TypeScript 5.6.3 (local user-provided)
+09:59:08.210 Using TypeScript 5.6.3 (local user-provided)
+09:59:08.451 Using TypeScript 5.6.3 (local user-provided)
+09:59:08.791 Using TypeScript 5.6.3 (local user-provided)
+09:59:09.272 Build Completed in /vercel/output [38s]
+09:59:09.422 Deploying outputs...
+09:59:16.271 Deployment completed
+09:59:17.100 Creating build cache...
