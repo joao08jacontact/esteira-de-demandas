@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/public",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": null,
+  "regions": ["iad1"],
+  "functions": {
+    "dist/index.js": {
+      "runtime": "nodejs20.x"
+    }
+  }
+}
