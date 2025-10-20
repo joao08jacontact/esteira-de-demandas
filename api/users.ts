@@ -1,6 +1,6 @@
 // api/users.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { glpiFetch, getRange } from './_glpi';
+import { glpiFetch, getRange } from './_glpi.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

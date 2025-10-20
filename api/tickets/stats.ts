@@ -1,6 +1,6 @@
 // api/tickets/stats.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { glpiFetch } from '../_glpi';
+import { glpiFetch } from '../_glpi.js';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
