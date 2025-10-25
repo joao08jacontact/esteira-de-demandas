@@ -1,8 +1,7 @@
-// api/bis.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// api/bis.js
 import { storage } from './_storage.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const bis = storage.bis.getAll();
@@ -15,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     res.status(405).json({ error: 'Method not allowed' });
-  } catch (e: any) {
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 }

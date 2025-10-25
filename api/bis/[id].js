@@ -1,10 +1,9 @@
-// api/bis/[id].ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// api/bis/[id].js
 import { storage } from '../_storage.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   try {
-    const id = Number(req.query.id);
+    const id = String(req.query.id);
 
     if (req.method === 'GET') {
       const bi = storage.bis.getById(id);
@@ -25,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     res.status(405).json({ error: 'Method not allowed' });
-  } catch (e: any) {
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 }

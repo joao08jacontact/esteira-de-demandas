@@ -1,8 +1,7 @@
-// api/tickets.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// api/tickets.js
 import { glpiFetch, getRange } from './_glpi.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   try {
     const page  = Number(req.query.page ?? 1);
     const limit = Number(req.query.limit ?? 20);
@@ -12,11 +11,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data = await r.json();
 
     res.status(200).json({
-      page, limit,
+      page, 
+      limit,
       total: data?.totalcount ?? data?.totalcountwithouthidden ?? undefined,
       items: data?.data ?? data,
     });
-  } catch (e: any) {
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 }

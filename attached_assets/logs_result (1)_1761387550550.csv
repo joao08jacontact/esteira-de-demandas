@@ -1,0 +1,221 @@
+"TimeUTC","timestampInMs","requestPath","requestMethod","requestQueryString","responseStatusCode","requestId","requestUserAgent","level","environment","branch","vercelCache","type","function","host","deploymentDomain","deploymentId","durationMs","region","maxMemoryUsed","memorySize","message","projectId","traceId","sessionId","invocationId","instanceId","concurrency"
+"2025-10-25 10:17:44",1761387464525,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"4m7mx-1761387464073-3321040b602a","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZHEBZCHW7PGFAKJYF5SK","",-1
+"2025-10-25 10:17:44",1761387464525,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"4m7mx-1761387464073-3321040b602a","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZHEBZCHW7PGFAKJYF5SK","",-1
+"2025-10-25 10:17:44",1761387464139,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"4m7mx-1761387464073-3321040b602a","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",381,"iad1",107,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZHEBZCHW7PGFAKJYF5SK","RsBipUiIh4pE",1
+"2025-10-25 10:17:43",1761387463742,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"9bwww-1761387463550-ccb6cde8034b","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZGXV09GN3AKXARQMZHBV","",-1
+"2025-10-25 10:17:43",1761387463610,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"9bwww-1761387463550-ccb6cde8034b","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",120,"iad1",76,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZGXV09GN3AKXARQMZHBV","",1
+"2025-10-25 10:17:41",1761387461982,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"cls8c-1761387461501-c35749e11db2","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZEXXMA132QYPX9EGRYBN","",-1
+"2025-10-25 10:17:41",1761387461982,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"cls8c-1761387461501-c35749e11db2","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZEXXMA132QYPX9EGRYBN","",-1
+"2025-10-25 10:17:41",1761387461565,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"cls8c-1761387461501-c35749e11db2","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",411,"iad1",107,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZEXXMA132QYPX9EGRYBN","RsBipUiIh4pE",1
+"2025-10-25 10:17:41",1761387461459,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"jlj6d-1761387461256-31ceb5aaf90f","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZEP72AW7P4XJYKAPGMBX","",-1
+"2025-10-25 10:17:41",1761387461319,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"jlj6d-1761387461256-31ceb5aaf90f","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",119,"iad1",76,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZEP72AW7P4XJYKAPGMBX","",1
+"2025-10-25 10:17:40",1761387460396,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"9bwww-1761387459946-5fca296e8618","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZDD96DY5JQJAZZ5SVXPM","",-1
+"2025-10-25 10:17:40",1761387460396,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"9bwww-1761387459946-5fca296e8618","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZDD96DY5JQJAZZ5SVXPM","",-1
+"2025-10-25 10:17:40",1761387460144,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"hrpqw-1761387459945-5061b39ccfce","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZDD6AMYXVEWRDW1GF1ZV","",-1
+"2025-10-25 10:17:40",1761387460009,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"9bwww-1761387459946-5fca296e8618","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",378,"iad1",107,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZDD96DY5JQJAZZ5SVXPM","RsBipUiIh4pE",1
+"2025-10-25 10:17:40",1761387460006,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"hrpqw-1761387459945-5061b39ccfce","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",119,"iad1",76,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZDD6AMYXVEWRDW1GF1ZV","",1
+"2025-10-25 10:17:32",1761387452228,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"9bwww-1761387451771-00102ecb73fc","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ5DZ7CWTVYZSE8HBFS5G","",-1
+"2025-10-25 10:17:32",1761387452228,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"9bwww-1761387451771-00102ecb73fc","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ5DZ7CWTVYZSE8HBFS5G","",-1
+"2025-10-25 10:17:31",1761387451839,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"9bwww-1761387451771-00102ecb73fc","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",381,"iad1",107,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ5DZ7CWTVYZSE8HBFS5G","RsBipUiIh4pE",1
+"2025-10-25 10:17:31",1761387451443,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"j78rw-1761387451239-90547670c8d5","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ4XEK820WA41CD8FDT37","",-1
+"2025-10-25 10:17:31",1761387451310,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"j78rw-1761387451239-90547670c8d5","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",118,"iad1",77,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ4XEK820WA41CD8FDT37","",1
+"2025-10-25 10:17:29",1761387449669,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"9bwww-1761387449209-d2d8c0f8fa0e","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ2Y23PRNHW97YSK4J3JB","",-1
+"2025-10-25 10:17:29",1761387449669,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"9bwww-1761387449209-d2d8c0f8fa0e","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ2Y23PRNHW97YSK4J3JB","",-1
+"2025-10-25 10:17:29",1761387449282,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"9bwww-1761387449209-d2d8c0f8fa0e","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",379,"iad1",107,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ2Y23PRNHW97YSK4J3JB","RsBipUiIh4pE",1
+"2025-10-25 10:17:29",1761387449145,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"hrpqw-1761387448935-e77609feb539","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ2NBWGVBC0ECACWAXNJ9","",-1
+"2025-10-25 10:17:29",1761387449003,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"hrpqw-1761387448935-e77609feb539","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",122,"iad1",77,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ2NBWGVBC0ECACWAXNJ9","",1
+"2025-10-25 10:17:28",1761387448107,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"j78rw-1761387447600-18adb86699e8","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ1BQ5Q6P13MH6CVG5T95","",-1
+"2025-10-25 10:17:28",1761387448107,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"j78rw-1761387447600-18adb86699e8","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ1BQ5Q6P13MH6CVG5T95","",-1
+"2025-10-25 10:17:27",1761387447803,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"c65ww-1761387447592-f8cf52f062a1","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ1BDHBB94R5YAT1VS8JR","",-1
+"2025-10-25 10:17:27",1761387447671,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"j78rw-1761387447600-18adb86699e8","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",423,"iad1",107,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ1BQ5Q6P13MH6CVG5T95","RsBipUiIh4pE",1
+"2025-10-25 10:17:27",1761387447661,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"c65ww-1761387447592-f8cf52f062a1","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",121,"iad1",76,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDZ1BDHBB94R5YAT1VS8JR","",1
+"2025-10-25 10:16:33",1761387393410,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"7mgd8-1761387392828-3d111937fb45","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDXBVWF8SKHCQZZAP1RNR8","",-1
+"2025-10-25 10:16:33",1761387393410,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"7mgd8-1761387392828-3d111937fb45","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDXBVWF8SKHCQZZAP1RNR8","",-1
+"2025-10-25 10:16:32",1761387392892,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"7mgd8-1761387392828-3d111937fb45","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",508,"iad1",107,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDXBVWF8SKHCQZZAP1RNR8","RsBipUiIh4pE",1
+"2025-10-25 10:16:32",1761387392128,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"t8644-1761387391894-103738d3831e","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDXAZV6WDDNDQMCTRPQJT0","",-1
+"2025-10-25 10:16:31",1761387391995,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"t8644-1761387391894-103738d3831e","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",117,"iad1",76,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDXAZV6WDDNDQMCTRPQJT0","",1
+"2025-10-25 10:16:30",1761387390742,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"t8644-1761387390278-1f8ca780fda3","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX9C39GHPS05S0V90AARA","",-1
+"2025-10-25 10:16:30",1761387390741,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"t8644-1761387390278-1f8ca780fda3","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX9C39GHPS05S0V90AARA","",-1
+"2025-10-25 10:16:30",1761387390339,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"t8644-1761387390278-1f8ca780fda3","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",386,"iad1",93,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX9C39GHPS05S0V90AARA","RsBipUiIh4pE",1
+"2025-10-25 10:16:29",1761387389791,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"jqjnc-1761387389562-931524f4280e","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX8NY1EQ538G7XC2QXX14","",-1
+"2025-10-25 10:16:29",1761387389630,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"jqjnc-1761387389562-931524f4280e","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",139,"iad1",76,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX8NY1EQ538G7XC2QXX14","",1
+"2025-10-25 10:16:29",1761387389118,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"lcf66-1761387387713-fcd558c06545","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6XPR7JJRR8T8KFK59BX","",-1
+"2025-10-25 10:16:29",1761387389118,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",-1,"lcf66-1761387387713-fcd558c06545","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/search/Ticket?forcedisplay[0]=2&range=0-999","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6XPR7JJRR8T8KFK59BX","",-1
+"2025-10-25 10:16:29",1761387389109,"esteira-de-demandas.vercel.app/api/categories","GET","",-1,"cz2nb-1761387387711-9b18a1182a9c","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/categories","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] ERRO 400 Bad Request [""ERROR_SESSION_TOKEN_MISSING"",""o parâmetro session_token está faltando ou vazio; ver documentação em seu navegador em http://177.153.50.101/glpi/apirest.php/#ERROR_SESSION_TOKEN_MISSING""]","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6X88E9TQEMPBYVMMPF1","",-1
+"2025-10-25 10:16:29",1761387389108,"esteira-de-demandas.vercel.app/api/categories","GET","",-1,"cz2nb-1761387387711-9b18a1182a9c","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","info","production","main","","lambda","/api/categories","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"[glpiFetch] 400 Bad Request https://chamados.jacontactcenter.com.br/apirest.php/ITILCategory","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6X88E9TQEMPBYVMMPF1","",-1
+"2025-10-25 10:16:28",1761387388434,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",-1,"h5t25-1761387387711-da11ccee79cf","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/tickets.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6X8SR1TX2S5K2CPDFTA","",-1
+"2025-10-25 10:16:28",1761387388407,"esteira-de-demandas.vercel.app/api/users","GET","",-1,"57lsr-1761387387711-2fa4dc97200c","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/users","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",-1,"iad1",-1,-1,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/users.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/api/_glpi' imported from /var/task/api/users.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:989:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1032:79)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/api/_glpi'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6X9QCAJNRDHAK1YG15T","",-1
+"2025-10-25 10:16:27",1761387387830,"esteira-de-demandas.vercel.app/api/tickets/stats","GET","limit=20",500,"lcf66-1761387387713-fcd558c06545","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets/stats","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",1028,"iad1",88,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6XPR7JJRR8T8KFK59BX","RsBipUiIh4pE",1
+"2025-10-25 10:16:27",1761387387817,"esteira-de-demandas.vercel.app/api/users","GET","",500,"57lsr-1761387387711-2fa4dc97200c","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/users","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",131,"iad1",76,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6X9QCAJNRDHAK1YG15T","",1
+"2025-10-25 10:16:27",1761387387816,"esteira-de-demandas.vercel.app/api/tickets","GET","page=1&limit=20",500,"h5t25-1761387387711-da11ccee79cf","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/tickets","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",125,"iad1",76,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6X8SR1TX2S5K2CPDFTA","",1
+"2025-10-25 10:16:27",1761387387816,"esteira-de-demandas.vercel.app/api/categories","GET","",500,"cz2nb-1761387387711-9b18a1182a9c","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","error","production","main","","lambda","/api/categories","esteira-de-demandas.vercel.app","esteira-de-demandas.vercel.app","dpl_GCzZphrpyxrWTr9gXuJaad7fuBpb",1090,"iad1",88,2048,"","prj_etfsqgW8r9R4uVXgENtbBfFjbroP","","","01K8DDX6X88E9TQEMPBYVMMPF1","IUgoPTX0vqBx",1

@@ -1,11 +1,10 @@
-// api/_glpi.ts
-import type { VercelRequest } from '@vercel/node';
+// api/_glpi.js
 
-const BASE = process.env.GLPI_API_URL!;
-const APP  = process.env.GLPI_APP_TOKEN!;
-const USER = process.env.GLPI_USER_TOKEN!;
+const BASE = process.env.GLPI_API_URL;
+const APP  = process.env.GLPI_APP_TOKEN;
+const USER = process.env.GLPI_USER_TOKEN;
 
-export async function glpiFetch(path: string, init: RequestInit = {}) {
+export async function glpiFetch(path, init = {}) {
   if (!BASE || !APP || !USER) {
     throw new Error('GLPI env vars ausentes (GLPI_API_URL, GLPI_APP_TOKEN, GLPI_USER_TOKEN)');
   }
@@ -19,12 +18,16 @@ export async function glpiFetch(path: string, init: RequestInit = {}) {
   const { session_token } = await initResp.json();
 
   // 2) chamada real
-  const headers: Record<string,string> = {
+  const headers = {
     'App-Token': APP,
     'Session-Token': session_token,
     'Content-Type': 'application/json',
   };
-  if (init.headers) for (const [k,v] of Object.entries(init.headers as any)) headers[k] = v as string;
+  if (init.headers) {
+    for (const [k, v] of Object.entries(init.headers)) {
+      headers[k] = v;
+    }
+  }
 
   const resp = await fetch(`${BASE}${path}`, { ...init, headers });
 
@@ -32,12 +35,12 @@ export async function glpiFetch(path: string, init: RequestInit = {}) {
   fetch(`${BASE}/killSession`, {
     method: 'GET',
     headers: { 'App-Token': APP, 'Session-Token': session_token },
-  }).catch(()=>{});
+  }).catch(() => {});
 
   return resp;
 }
 
-export function getRange(page=1, limit=20) {
+export function getRange(page = 1, limit = 20) {
   const start = (page - 1) * limit;
   const end   = start + limit - 1;
   return `${start}-${end}`;
