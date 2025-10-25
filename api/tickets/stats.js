@@ -3,10 +3,10 @@ import { glpiFetch } from '../_glpi.js';
 
 export default async function handler(req, res) {
   try {
-    // Fetch all tickets (up to 1000)
-    const r = await glpiFetch(`/search/Ticket?range=0-999`);
+    // Fetch all tickets (up to 1000) using /Ticket/ endpoint
+    const r = await glpiFetch(`/Ticket/?range=0-999`);
     const data = await r.json();
-    const tickets = data?.data ?? data ?? [];
+    const tickets = Array.isArray(data) ? data : [];
 
     // Parse filters from query string
     const filters = {
