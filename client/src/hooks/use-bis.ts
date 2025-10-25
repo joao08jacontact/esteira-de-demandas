@@ -23,6 +23,7 @@ export function useBis() {
 
   useEffect(() => {
     setLoading(true);
+    console.log("[useBis] Initializing Firestore listener...");
     
     const bisCollection = collection(db, "bis");
     
@@ -31,14 +32,19 @@ export function useBis() {
       query(bisCollection),
       async (snapshot) => {
         try {
+          console.log(`[useBis] Received ${snapshot.docs.length} BIs from Firestore`);
+          
           const bisData = await Promise.all(
             snapshot.docs.map(async (biDoc) => {
               const biData = biDoc.data();
+              console.log(`[useBis] Processing BI ${biDoc.id}:`, biData);
               
               // Fetch bases subcollection
               const basesSnapshot = await getDocs(
                 collection(db, "bis", biDoc.id, "bases")
               );
+              
+              console.log(`[useBis] BI ${biDoc.id} has ${basesSnapshot.docs.length} bases`);
               
               const bases: BaseOrigem[] = basesSnapshot.docs.map((baseDoc) => ({
                 id: baseDoc.id,
@@ -55,20 +61,26 @@ export function useBis() {
             })
           );
           
+          console.log("[useBis] Final BIs data:", bisData);
           setBis(bisData);
           setLoading(false);
         } catch (err) {
+          console.error("[useBis] Error processing BIs:", err);
           setError(err as Error);
           setLoading(false);
         }
       },
       (err) => {
+        console.error("[useBis] Firestore listener error:", err);
         setError(err);
         setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      console.log("[useBis] Cleaning up listener");
+      unsubscribe();
+    };
   }, []);
 
   return { bis, loading, error };
