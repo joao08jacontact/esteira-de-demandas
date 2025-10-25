@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Automacao } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { deleteAutomacao as deleteAutomacaoFn } from "@/hooks/use-automacoes";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -18,8 +18,7 @@ export function AutomacaoTable({ automacoes, isLoading }: AutomacaoTableProps) {
 
   const deleteAutomacao = async (id: string) => {
     try {
-      await apiRequest("DELETE", `/api/automacoes/${id}`, {});
-      queryClient.invalidateQueries({ queryKey: ["/api/automacoes"] });
+      await deleteAutomacaoFn(id);
       toast({
         title: "Automação excluída",
         description: "A automação foi removida com sucesso.",

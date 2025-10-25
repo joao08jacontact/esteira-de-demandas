@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { createAutomacao } from "@/hooks/use-automacoes";
 import {
   Select,
   SelectContent,
@@ -55,13 +55,12 @@ export function AutomacaoForm() {
   const onSubmit = async (data: AutomacaoFormData) => {
     setIsSubmitting(true);
     try {
-      await apiRequest("POST", "/api/automacoes", data);
+      await createAutomacao(data);
       toast({
         title: "Automação cadastrada com sucesso!",
         description: `${data.nomeIntegracao} foi adicionada à lista.`,
       });
       reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/automacoes"] });
     } catch (error) {
       toast({
         title: "Erro ao cadastrar automação",

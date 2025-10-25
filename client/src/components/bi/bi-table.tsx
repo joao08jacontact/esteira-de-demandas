@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { BiWithBases } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { updateBaseStatus, updateBiInativo } from "@/hooks/use-bis";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -41,16 +41,12 @@ export function BiTable({ bis, isLoading, type }: BiTableProps) {
 
   const concluirBi = async (biId: string) => {
     try {
-      // Marcar todas as bases como concluídas
       const bi = bis.find(b => b.id === biId);
       if (bi) {
         for (const base of bi.bases) {
-          await apiRequest("PATCH", `/api/bases/${base.id}/status`, {
-            status: "concluido",
-          });
+          await updateBaseStatus(biId, base.id, "concluido");
         }
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/bis"] });
       toast({
         title: "BI concluído",
         description: "O BI foi marcado como concluído.",
@@ -66,10 +62,7 @@ export function BiTable({ bis, isLoading, type }: BiTableProps) {
 
   const inativarBi = async (biId: string) => {
     try {
-      await apiRequest("PATCH", `/api/bis/${biId}/inativar`, {
-        inativo: true,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/bis"] });
+      await updateBiInativo(biId, true);
       toast({
         title: "BI inativado",
         description: "O BI foi marcado como inativo.",

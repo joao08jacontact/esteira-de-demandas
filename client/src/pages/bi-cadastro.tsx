@@ -1,16 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
 import { BiForm } from "@/components/bi/bi-form";
 import { BiTable } from "@/components/bi/bi-table";
 import { BiCanvas } from "@/components/bi/bi-canvas";
-import type { BiWithBases } from "@shared/schema";
+import { useBis } from "@/hooks/use-bis";
 
 export default function BiCadastro() {
-  const { data: bisData, isLoading } = useQuery<BiWithBases[]>({
-    queryKey: ["/api/bis"],
-  });
+  const { bis: bisData, loading: isLoading } = useBis();
 
-  const bisEmAberto = bisData?.filter((bi) => bi.status === "em_aberto" && !bi.inativo) || [];
-  const bisConcluidos = bisData?.filter((bi) => bi.status === "concluido" && !bi.inativo) || [];
+  const bisEmAberto = bisData.filter((bi) => bi.status === "em_aberto" && !bi.inativo);
+  const bisConcluidos = bisData.filter((bi) => bi.status === "concluido" && !bi.inativo);
 
   return (
     <div className="h-full overflow-auto">

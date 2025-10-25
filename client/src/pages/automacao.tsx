@@ -1,12 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import { AutomacaoForm } from "@/components/automacao/automacao-form";
 import { AutomacaoTable } from "@/components/automacao/automacao-table";
-import type { Automacao } from "@shared/schema";
+import { useAutomacoes } from "@/hooks/use-automacoes";
 
 export default function AutomacaoPage() {
-  const { data: automacoes = [], isLoading } = useQuery<Automacao[]>({
-    queryKey: ["/api/automacoes"],
-  });
+  const { automacoes, loading: isLoading } = useAutomacoes();
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

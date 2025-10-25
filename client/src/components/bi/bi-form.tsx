@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { createBi } from "@/hooks/use-bis";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -80,7 +80,12 @@ export function BiForm() {
   const onSubmit = async (data: BiFormData) => {
     setIsSubmitting(true);
     try {
-      await apiRequest("POST", "/api/bis", data);
+      console.log("Submitting BI with data:", data);
+      const { bases, ...biData } = data;
+      console.log("BI data:", biData);
+      console.log("Bases data:", bases);
+      const biId = await createBi({ bi: biData, bases });
+      console.log("BI created successfully with ID:", biId);
       toast({
         title: "BI cadastrado com sucesso!",
         description: `${data.nome} foi adicionado à lista de BIs em aberto.`,
@@ -95,11 +100,12 @@ export function BiForm() {
       });
       setDataInicio(undefined);
       setDataFinal(undefined);
-      queryClient.invalidateQueries({ queryKey: ["/api/bis"] });
     } catch (error) {
+      console.error("Error creating BI:", error);
+      console.error("Error details:", JSON.stringify(error, null, 2));
       toast({
         title: "Erro ao cadastrar BI",
-        description: "Ocorreu um erro ao tentar cadastrar o BI. Tente novamente.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao tentar cadastrar o BI. Tente novamente.",
         variant: "destructive",
       });
     } finally {
