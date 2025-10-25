@@ -1,3 +1,4 @@
+// Dashboard GLPI Charts - versão 2.0
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TicketStats } from "@shared/schema";
